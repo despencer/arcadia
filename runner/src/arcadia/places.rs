@@ -1,6 +1,5 @@
-use crate::arcadia::universe::Slab;
-use crate::arcadia::universe::SlabIndex;
 use crate::arcadia::actors::Actor;
+use crate::arcadia::depot::{Slab, SlabIndex};
 
 pub struct Container
 {
