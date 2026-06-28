@@ -5,7 +5,7 @@ use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::fs::File;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::actors::Actor;
-use crate::arcadia::places::Container;
+use crate::arcadia::places::World;
 use crate::arcadia::depot::Depot;
 
 pub trait Load1<R> where R:Read, Self:Sized
@@ -22,8 +22,8 @@ pub struct Universe
 {
  timetick: u64,
  lastseqid: u64,
- actors: Depot<Actor>,
- defplace: Container
+ pub actors: Depot<Actor>,
+ defplace: World
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -58,7 +58,7 @@ impl Universe
  pub fn move_actors(uni: &mut Universe) -> ()
  {
   for (_, actor) in uni.actors.iter().enumerate()
-      { uni.defplace.push(actor); };
+      { uni.defplace.put(actor); };
  }
 }
 
@@ -77,7 +77,7 @@ impl Universe
    let tick = source.read_u64::<LittleEndian>()?;
    let seqid = source.read_u64::<LittleEndian>()?;
    let actors = Universe::load_vector_1::<R, Actor>(source)?;
-   let defplace = Container::new();
+   let defplace = World::new();
    let mut universe = Universe { timetick: tick, lastseqid: seqid, actors: actors, defplace:defplace };
    { let uni = &mut universe; Universe::move_actors(uni); }
    Ok(universe)
@@ -132,7 +132,7 @@ impl Universe
  pub fn step(&mut self)
  {
    self.timetick += 1;
-   self.defplace.add_credits(&mut self.actors);
+   self.defplace.step(&mut self.actors);
  }
 
 }
