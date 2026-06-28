@@ -6,7 +6,7 @@ use std::fs::File;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::actors::Actor;
 use crate::arcadia::places::Container;
-use crate::arcadia::depot::Slab;
+use crate::arcadia::depot::Depot;
 
 pub trait Load1<R> where R:Read, Self:Sized
 {
@@ -22,7 +22,7 @@ pub struct Universe
 {
  timetick: u64,
  lastseqid: u64,
- actors: Slab<Actor>,
+ actors: Depot<Actor>,
  defplace: Container
 }
 
@@ -30,11 +30,11 @@ const UNIVERSE_VERSION:u16 = 1;
 
 impl Universe
 {
- pub fn load_vector_1<R, T>(source: &mut R) -> Result<Slab<T>> where R:Read, T:Load1<R>
+ pub fn load_vector_1<R, T>(source: &mut R) -> Result<Depot<T>> where R:Read, T:Load1<R>
  {
   let ucount = source.read_u32::<LittleEndian>()?;
   let count = ucount as usize;
-  let mut result = Slab::<T>::new();
+  let mut result = Depot::<T>::new();
   for _i in 0..count
      {
      let item = T::load_1(source)?;
@@ -42,7 +42,7 @@ impl Universe
      }
   Ok(result)
  }
- pub fn save_vector_1<W, T>(data: &Slab<T>, target: &mut W) -> Result<()> where W:Write, T:Save1<W>
+ pub fn save_vector_1<W, T>(data: &Depot<T>, target: &mut W) -> Result<()> where W:Write, T:Save1<W>
  {
   let count = data.len() as u32;
   target.write_u32::<LittleEndian>(count)?;

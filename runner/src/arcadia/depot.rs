@@ -1,33 +1,33 @@
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct SlabIndex(usize);
+pub struct DepotIndex(usize);
 
-pub struct Slab<T: Sized>
+pub struct Depot<T: Sized>
 {
     data: Vec<Option<T>>,
-    removed_indexes: Vec<SlabIndex>,
+    removed_indexes: Vec<DepotIndex>,
 }
 
-impl<T: Sized> Slab<T>
+impl<T: Sized> Depot<T>
 {
     pub fn new() -> Self
         { Self { data: Vec::new(), removed_indexes: Default::default(), } }
 
-    pub fn insert(&mut self, item: T) -> SlabIndex
+    pub fn insert(&mut self, item: T) -> DepotIndex
         {
           if let Some(index) = self.removed_indexes.pop()
              {  self.data[index.0] = Some(item); index }
           else
-             { let index = SlabIndex(self.data.len()); self.data.push(Some(item)); index }
+             { let index = DepotIndex(self.data.len()); self.data.push(Some(item)); index }
         }
 
-    pub fn get_mut(&mut self, index: SlabIndex) -> Option<&mut T>
+    pub fn get_mut(&mut self, index: DepotIndex) -> Option<&mut T>
         {
         if let Some(item) = self.data.get_mut(index.0)
             { return item.as_mut(); }
         None
         }
 
-    pub fn get(&self, index: SlabIndex) -> Option<&T>
+    pub fn get(&self, index: DepotIndex) -> Option<&T>
         {
         if let Some(item) = self.data.get(index.0)
             { return item.as_ref(); }
@@ -55,13 +55,13 @@ pub struct Iter<'a, T>
 
 impl<'a, T> Iterator for Iter<'a, T>
 {
-  type Item = SlabIndex;
+  type Item = DepotIndex;
   fn next(&mut self) -> Option<Self::Item>
       {
       loop
          {
           let (i, item) = self.iter.next()?;
-          let si = SlabIndex(i);
+          let si = DepotIndex(i);
 
           if item.is_none()
               { continue; }
