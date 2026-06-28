@@ -4,8 +4,8 @@ use std::time::Instant;
 use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::fs::File;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
-mod actor;
-mod places;
+use crate::arcadia::actors::Actor;
+use crate::arcadia::places::Container;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct SlabIndex(usize);
@@ -113,8 +113,8 @@ pub struct Universe
 {
  timetick: u64,
  lastseqid: u64,
- actors: Slab<actor::Actor>,
- defplace: places::Container
+ actors: Slab<Actor>,
+ defplace: Container
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -159,7 +159,7 @@ impl Universe
  {
   target.write_u64::<LittleEndian>(self.timetick)?;
   target.write_u64::<LittleEndian>(self.lastseqid)?;
-  Universe::save_vector_1::<W, actor::Actor>(&self.actors, target)?;
+  Universe::save_vector_1::<W, Actor>(&self.actors, target)?;
   Ok(())
  }
 
@@ -167,8 +167,8 @@ impl Universe
  {
    let tick = source.read_u64::<LittleEndian>()?;
    let seqid = source.read_u64::<LittleEndian>()?;
-   let actors = Universe::load_vector_1::<R, actor::Actor>(source)?;
-   let defplace = places::Container::new();
+   let actors = Universe::load_vector_1::<R, Actor>(source)?;
+   let defplace = Container::new();
    let mut universe = Universe { timetick: tick, lastseqid: seqid, actors: actors, defplace:defplace };
    { let uni = &mut universe; Universe::move_actors(uni); }
    Ok(universe)

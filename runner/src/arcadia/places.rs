@@ -1,6 +1,6 @@
-use crate::universe::Slab;
-use crate::universe::SlabIndex;
-use crate::universe::actor::Actor;
+use crate::arcadia::universe::Slab;
+use crate::arcadia::universe::SlabIndex;
+use crate::arcadia::actors::Actor;
 
 pub struct Container
 {

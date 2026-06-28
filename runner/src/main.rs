@@ -3,7 +3,8 @@ use std::sync::Arc;
 use std::{thread};
 use std::io;
 use std::env;
-mod universe;
+mod arcadia;
+use crate::arcadia::universe::Universe;
 
 fn run(uname: &str)
 {
@@ -14,7 +15,7 @@ fn run(uname: &str)
  let fname = uname.to_owned();
 
  println!("Press ENTER to stop");
- let unith = thread::spawn(move || universe::Universe::run(fname, cancel_ticket));
+ let unith = thread::spawn(move || Universe::run(fname, cancel_ticket));
 
  let mut input = String::new();
  io::stdin().read_line(&mut input).expect("Failed to read");
