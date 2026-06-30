@@ -1,12 +1,14 @@
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DepotIndex(usize);
 
+#[derive(Default)]
 pub struct Depot<T: Sized>
 {
     data: Vec<Option<T>>,
     removed_indexes: Vec<DepotIndex>,
 }
 
+#[allow(dead_code)]
 impl<T: Sized> Depot<T>
 {
     pub fn new() -> Self
@@ -39,7 +41,7 @@ impl<T: Sized> Depot<T>
            Iter { iter: self.data.iter().enumerate(), }
         }
 
-    pub fn all(&self) -> IterData<'_, T>
+    pub fn iterdata(&self) -> IterData<'_, T>
         {
            IterData { iter: self.data.iter().enumerate(), }
         }
