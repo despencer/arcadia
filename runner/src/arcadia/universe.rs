@@ -8,12 +8,14 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::actors::Actor;
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
+use crate::arcadia::dispatcher::{Message,Dispatcher};
 
 #[derive(Default)]
 pub struct Storage
 {
  pub actors: Depot<Actor>,
  pub worlds: Depot<World>,
+ pub alookup: HashMap<u64, DepotIndex>
 }
 
 #[derive(Default)]
@@ -23,7 +25,8 @@ pub struct Universe
  lastseqid: u64,
  storage: Storage,
  commune: Container,
- realm: Realm
+ realm: Realm,
+ dispatcher: Dispatcher
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -35,18 +38,17 @@ impl Universe
   self.timetick = source.read_u64::<LittleEndian>()?;
   self.lastseqid = source.read_u64::<LittleEndian>()?;
   self.commune.load_1(source)?;
-  let mut alookup = HashMap::<u64, DepotIndex>::new();
   let counta = source.read_u32::<LittleEndian>()? as usize;
   for _i in 0..counta
      {
      let actor = Actor::load_1(source)?; let aid = actor.id;
      let iactor = self.storage.actors.insert(actor);
-     self.commune.insert(iactor); alookup.insert(aid, iactor);
+     self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
   let countw = source.read_u32::<LittleEndian>()? as usize;
   for _i in 0..countw
      {
-     let world = World::load_1(source, &alookup)?; let iworld = self.storage.worlds.insert(world);
+     let world = World::load_1(source, &self.storage.alookup)?; let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld);
      }
 
@@ -96,8 +98,29 @@ impl Universe
  pub fn tick(&mut self)
  {
   self.timetick += 1;
-  self.commune.tick(&mut self.storage.actors);
+  self.commune.tick(&mut self.storage.actors, &mut self.dispatcher);
   self.realm.tick(&mut self.storage.worlds, &mut self.storage.actors);
+  while self.dispatcher.len() > 0
+     {
+     match self.dispatcher.get()
+       {
+         Message::Death {id} => self.drop_actor(id),
+       }
+     }
+ }
+
+ pub fn lookup_actor(&self, id: u64) -> DepotIndex
+ {
+  *self.storage.alookup.get(&id).unwrap()
+ }
+
+ pub fn drop_actor(&mut self, id: u64)
+ {
+  let iactor = self.lookup_actor(id);
+  self.commune.drop_actor(iactor);
+  self.realm.drop_actor(&mut self.storage.worlds, iactor);
+  self.storage.alookup.remove(&id);
+  self.storage.actors.remove(iactor);
  }
 
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)

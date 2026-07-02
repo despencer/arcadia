@@ -1,5 +1,6 @@
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+use crate::arcadia::dispatcher::{Dispatcher, Message};
 
 #[derive(Default)]
 pub struct Actor
@@ -14,9 +15,12 @@ impl Actor
  {
  }
 
- pub fn billing(&mut self, amount: u32)
+ pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher)
  {
-  self.credits -= amount;
+  if self.credits >= amount
+    {  self.credits -= amount; }
+  else
+    { self.credits = 0; dispatcher.put( Message::Death {id : self.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)

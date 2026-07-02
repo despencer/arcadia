@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::actors::Actor;
+use crate::arcadia::dispatcher::Dispatcher;
 
 #[derive(Default)]
 pub struct Container
@@ -27,11 +28,11 @@ pub struct Realm
 
 impl Container
 {
- pub fn tick(&mut self, actors: &mut Depot<Actor>)
+ pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut Dispatcher)
  {
   for a in &self.actors
     {
-    actors.get_mut(*a).unwrap().billing(self.billing);
+    actors.get_mut(*a).unwrap().billing(self.billing, dispatcher);
     actors.get_mut(*a).unwrap().tick();
     }
  }
@@ -39,6 +40,12 @@ impl Container
  pub fn insert(&mut self, actor: DepotIndex)
  {
   self.actors.push(actor);
+ }
+
+ pub fn drop_actor(&mut self, actor: DepotIndex)
+ {
+  if let Some(index) = self.actors.iter().position(|x| *x == actor)
+    { self.actors.remove(index); }
  }
 
  pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
@@ -61,6 +68,12 @@ impl World
  {
   for a in &self.actors
     { actors.get_mut(*a).unwrap().feed(self.production); }
+ }
+
+ pub fn drop_actor(&mut self, actor: DepotIndex)
+ {
+  if let Some(index) = self.actors.iter().position(|x| *x == actor)
+    { self.actors.remove(index); }
  }
 
  pub fn load_1<R:Read>(source: &mut R, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
@@ -104,4 +117,9 @@ impl Realm
   self.worlds.push(world);
  }
 
+ pub fn drop_actor(&mut self, worlds: &mut Depot<World>, actor: DepotIndex)
+ {
+  for w in &self.worlds
+    { worlds.get_mut(*w).unwrap().drop_actor(actor); }
+ }
 }

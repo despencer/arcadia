@@ -22,6 +22,12 @@ impl<T: Sized> Depot<T>
              { let index = DepotIndex(self.data.len()); self.data.push(Some(item)); index }
         }
 
+    pub fn remove(&mut self, index: DepotIndex)
+        {
+        if let Some(_) = self.data.get_mut(index.0)
+            { self.removed_indexes.push(index); }
+        }
+
     pub fn get_mut(&mut self, index: DepotIndex) -> Option<&mut T>
         {
         if let Some(item) = self.data.get_mut(index.0)
