@@ -8,8 +8,10 @@ WORLD_ID = 2
 
 def save_actor(fs):
     fs.write( ACTOR_ID.to_bytes(8, msb) ) # Actor ID
-    credits = 0
+    credits = 100
     fs.write( credits.to_bytes(4, msb) )   # amount of credits
+    threshold = 500
+    fs.write( credits.to_bytes(4, msb) )   # threshold to make a child
 
 def save_world(fs):
     fs.write( WORLD_ID.to_bytes(8, msb) ) # WORLD ID

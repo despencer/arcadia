@@ -3,17 +3,22 @@ use std::sync::Arc;
 use std::{thread};
 use std::io;
 use std::env;
+use std::fs::File;
+use simplelog::*;
 mod arcadia;
 use crate::arcadia::universe::Universe;
 
 fn run(uname: &str)
 {
+ CombinedLogger::init(vec![ WriteLogger::new(LevelFilter::Debug, Config::default(), File::create("arcadia.log").unwrap()), ]).unwrap();
+
  println!("Universe {:?}", uname);
 
  let cancel_request = Arc::new(AtomicBool::new(false));
  let cancel_ticket = cancel_request.clone();
  let fname = uname.to_owned();
 
+ log::info!("Starting thread");
  println!("Press ENTER to stop");
  let unith = thread::spawn(move || Universe::run(fname, cancel_ticket));
 

@@ -66,22 +66,30 @@ impl World
 {
  pub fn tick(&mut self, actors: &mut Depot<Actor>)
  {
-  for a in &self.actors
-    { actors.get_mut(*a).unwrap().feed(self.production); }
+  if self.actors.len() > 0
+    {
+    let prod = self.production / ( self.actors.len() as u32 );
+    for a in &self.actors
+       { actors.get_mut(*a).unwrap().feed(prod); }
+    }
  }
 
  pub fn drop_actor(&mut self, actor: DepotIndex)
  {
+  log::info!("World {} drop actor {:?}", self.id, actor);
   if let Some(index) = self.actors.iter().position(|x| *x == actor)
     { self.actors.remove(index); }
+  log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
  }
 
  pub fn load_1<R:Read>(source: &mut R, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
  {
+   log::debug!("World loading");
    let mut world = World::default();
    world.id = source.read_u64::<LittleEndian>()?;
    world.production = source.read_u32::<LittleEndian>()?;
    let counta = source.read_u32::<LittleEndian>()? as usize;
+   log::debug!("World loading, {} actors", counta);
    for _i in 0..counta
      {
      let aid = source.read_u64::<LittleEndian>()?;
@@ -90,6 +98,7 @@ impl World
      else
          { return Err(Error::new(ErrorKind::InvalidData, "Actor not found")); }
      }
+   log::debug!("World {} loaded", world.id);
    Ok(world)
  }
 
@@ -97,6 +106,7 @@ impl World
  {
    target.write_u64::<LittleEndian>(self.id)?;
    target.write_u32::<LittleEndian>(self.production)?;
+   log::debug!("World saving, {} actors", self.actors.len());
    target.write_u32::<LittleEndian>(self.actors.len() as u32)?;
    for iactor in self.actors.iter()
       { target.write_u64::<LittleEndian>(actors.get(*iactor).unwrap().id)?; }

@@ -1,12 +1,14 @@
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::dispatcher::{Dispatcher, Message};
+use crate::arcadia::control::Control;
 
 #[derive(Default)]
 pub struct Actor
 {
  pub id: u64,
  credits: u32,
+ control: Control
 }
 
 impl Actor
@@ -25,7 +27,7 @@ impl Actor
 
  pub fn feed(&mut self, amount: u32)
  {
-  self.credits += amount;
+  self.credits = self.credits.saturating_add(amount);
  }
 
  pub fn load_1<R:Read>(source: &mut R) -> Result<Self>
@@ -33,6 +35,7 @@ impl Actor
    let mut actor = Actor::default();
    actor.id = source.read_u64::<LittleEndian>()?;
    actor.credits = source.read_u32::<LittleEndian>()?;
+   actor.control.load_1(source)?;
    Ok(actor)
  }
 
@@ -40,6 +43,7 @@ impl Actor
  {
    target.write_u64::<LittleEndian>(self.id)?;
    target.write_u32::<LittleEndian>(self.credits)?;
+   self.control.save_1(target)?;
    Ok(())
  }
 }

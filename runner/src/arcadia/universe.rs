@@ -35,10 +35,13 @@ impl Universe
 {
  pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
  {
+  log::debug!("Universe loading started");
   self.timetick = source.read_u64::<LittleEndian>()?;
   self.lastseqid = source.read_u64::<LittleEndian>()?;
+  log::debug!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
   self.commune.load_1(source)?;
   let counta = source.read_u32::<LittleEndian>()? as usize;
+  log::debug!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
      let actor = Actor::load_1(source)?; let aid = actor.id;
@@ -46,12 +49,13 @@ impl Universe
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
   let countw = source.read_u32::<LittleEndian>()? as usize;
+  log::debug!("Universe reading {} worlds", countw);
   for _i in 0..countw
      {
      let world = World::load_1(source, &self.storage.alookup)?; let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld);
      }
-
+  log::debug!("Universe loading finished");
   Ok(())
  }
 
