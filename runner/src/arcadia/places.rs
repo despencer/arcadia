@@ -89,7 +89,7 @@ impl World
    world.id = source.read_u64::<LittleEndian>()?;
    world.production = source.read_u32::<LittleEndian>()?;
    let counta = source.read_u32::<LittleEndian>()? as usize;
-   log::debug!("World loading, {} actors", counta);
+   log::debug!("World {} loading, {} production, {} actors", world.id,  world.production, counta);
    for _i in 0..counta
      {
      let aid = source.read_u64::<LittleEndian>()?;
@@ -106,7 +106,7 @@ impl World
  {
    target.write_u64::<LittleEndian>(self.id)?;
    target.write_u32::<LittleEndian>(self.production)?;
-   log::debug!("World saving, {} actors", self.actors.len());
+   log::debug!("World {} saving, {} actors", self.id, self.actors.len());
    target.write_u32::<LittleEndian>(self.actors.len() as u32)?;
    for iactor in self.actors.iter()
       { target.write_u64::<LittleEndian>(actors.get(*iactor).unwrap().id)?; }

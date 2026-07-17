@@ -41,6 +41,7 @@ impl Actor
 
  pub fn save_1<W:Write>(&self, target: &mut W) -> Result<()>
  {
+   log::debug!("Saving actor {}", self.id);
    target.write_u64::<LittleEndian>(self.id)?;
    target.write_u32::<LittleEndian>(self.credits)?;
    self.control.save_1(target)?;

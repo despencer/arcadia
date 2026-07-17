@@ -10,7 +10,7 @@ use crate::arcadia::universe::Universe;
 
 fn run(uname: &str)
 {
- CombinedLogger::init(vec![ WriteLogger::new(LevelFilter::Debug, Config::default(), File::create("arcadia.log").unwrap()), ]).unwrap();
+ CombinedLogger::init(vec![ WriteLogger::new(LevelFilter::Info, Config::default(), File::create("arcadia.log").unwrap()), ]).unwrap();
 
  println!("Universe {:?}", uname);
 

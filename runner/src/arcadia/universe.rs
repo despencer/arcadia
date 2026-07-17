@@ -65,6 +65,7 @@ impl Universe
   target.write_u64::<LittleEndian>(self.lastseqid)?;
   self.commune.save_1(target)?;
   target.write_u32::<LittleEndian>(self.storage.actors.len() as u32)?;
+  log::debug!("Universe saving {} actors", self.storage.actors.len());
   for actor in self.storage.actors.iterdata()
       { actor.save_1(target)?; }
   target.write_u32::<LittleEndian>(self.storage.worlds.len() as u32)?;

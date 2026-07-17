@@ -15,7 +15,7 @@ def save_actor(fs):
 
 def save_world(fs):
     fs.write( WORLD_ID.to_bytes(8, msb) ) # WORLD ID
-    production = 1000
+    production = 100
     fs.write( production.to_bytes(4, msb) )   # amount of credits per tick
     ucount = 1
     fs.write( ucount.to_bytes(4, msb) )   # number of actors in the world
@@ -26,7 +26,7 @@ def save(fs):
     ticks = 0
     fs.write( ticks.to_bytes(8, msb) )
     fs.write( UNIVERSE_SEQID.to_bytes(8, msb) )
-    billing = 10
+    billing = 120
     fs.write( billing.to_bytes(4, msb) )
     ucount = 1
     fs.write( ucount.to_bytes(4, msb) )   # number of actors
