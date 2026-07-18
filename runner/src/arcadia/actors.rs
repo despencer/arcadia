@@ -1,7 +1,15 @@
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
-use crate::arcadia::dispatcher::{Dispatcher, Message};
+use crate::arcadia::dispatcher::Dispatcher;
 use crate::arcadia::control::Control;
+
+#[derive(Default)]
+pub enum ActorLifecycle
+{
+ #[default]
+ Empty,
+ Death { id: u64}
+}
 
 #[derive(Default)]
 pub struct Actor
@@ -17,12 +25,12 @@ impl Actor
  {
  }
 
- pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher<Message>)
+ pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher<ActorLifecycle>)
  {
   if self.credits >= amount
     {  self.credits -= amount; }
   else
-    { self.credits = 0; dispatcher.put( Message::Death {id : self.id} ); }
+    { self.credits = 0; dispatcher.put( ActorLifecycle::Death {id : self.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)

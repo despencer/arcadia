@@ -2,8 +2,8 @@ use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::collections::HashMap;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::actors::Actor;
-use crate::arcadia::dispatcher::{Dispatcher,Message};
+use crate::arcadia::actors::{Actor, ActorLifecycle};
+use crate::arcadia::dispatcher::Dispatcher;
 
 #[derive(Default)]
 pub struct Container
@@ -28,7 +28,7 @@ pub struct Realm
 
 impl Container
 {
- pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut Dispatcher<Message>)
+ pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut Dispatcher<ActorLifecycle>)
  {
   for a in &self.actors
     {

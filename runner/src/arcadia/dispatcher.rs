@@ -1,14 +1,6 @@
 use std::collections::VecDeque;
 
 #[derive(Default)]
-pub enum Message
-{
- #[default]
- Empty,
- Death { id: u64}
-}
-
-#[derive(Default)]
 pub struct Dispatcher<T>
 {
  messages: VecDeque<T>

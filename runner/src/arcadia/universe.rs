@@ -5,10 +5,10 @@ use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
-use crate::arcadia::actors::Actor;
+use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::dispatcher::{Message,Dispatcher};
+use crate::arcadia::dispatcher::Dispatcher;
 
 #[derive(Default)]
 pub struct Storage
@@ -26,7 +26,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- dispatcher: Dispatcher<Message>
+ dispatcher: Dispatcher<ActorLifecycle>
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -109,7 +109,7 @@ impl Universe
      {
      match self.dispatcher.get()
        {
-         Message::Death {id} => self.drop_actor(id),
+         ActorLifecycle::Death {id} => self.drop_actor(id),
          _ => {}
        }
      }
