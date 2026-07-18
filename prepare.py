@@ -8,14 +8,14 @@ WORLD_ID = 2
 
 def save_actor(fs):
     fs.write( ACTOR_ID.to_bytes(8, msb) ) # Actor ID
-    credits = 100
+    credits = 1000
     fs.write( credits.to_bytes(4, msb) )   # amount of credits
-    threshold = 500
-    fs.write( credits.to_bytes(4, msb) )   # threshold to make a child
+    threshold = 750
+    fs.write( threshold.to_bytes(4, msb) )   # threshold to make a child
 
 def save_world(fs):
     fs.write( WORLD_ID.to_bytes(8, msb) ) # WORLD ID
-    production = 100
+    production = 10
     fs.write( production.to_bytes(4, msb) )   # amount of credits per tick
     ucount = 1
     fs.write( ucount.to_bytes(4, msb) )   # number of actors in the world
@@ -26,7 +26,7 @@ def save(fs):
     ticks = 0
     fs.write( ticks.to_bytes(8, msb) )
     fs.write( UNIVERSE_SEQID.to_bytes(8, msb) )
-    billing = 120
+    billing = 60
     fs.write( billing.to_bytes(4, msb) )
     ucount = 1
     fs.write( ucount.to_bytes(4, msb) )   # number of actors
