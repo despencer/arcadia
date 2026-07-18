@@ -17,7 +17,7 @@ impl Actor
  {
  }
 
- pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher)
+ pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher<Message>)
  {
   if self.credits >= amount
     {  self.credits -= amount; }

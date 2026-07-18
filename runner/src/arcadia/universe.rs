@@ -26,7 +26,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- dispatcher: Dispatcher
+ dispatcher: Dispatcher<Message>
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -110,6 +110,7 @@ impl Universe
      match self.dispatcher.get()
        {
          Message::Death {id} => self.drop_actor(id),
+         _ => {}
        }
      }
  }

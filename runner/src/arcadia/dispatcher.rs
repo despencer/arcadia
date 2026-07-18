@@ -1,19 +1,22 @@
 use std::collections::VecDeque;
 
+#[derive(Default)]
 pub enum Message
 {
+ #[default]
+ Empty,
  Death { id: u64}
 }
 
 #[derive(Default)]
-pub struct Dispatcher
+pub struct Dispatcher<T>
 {
- messages: VecDeque<Message>
+ messages: VecDeque<T>
 }
 
-impl Dispatcher
+impl<T> Dispatcher<T>
 {
- pub fn put(&mut self, message: Message)
+ pub fn put(&mut self, message: T)
  {
   self.messages.push_back(message);
  }
@@ -23,7 +26,7 @@ impl Dispatcher
   self.messages.len()
  }
 
- pub fn get(&mut self) -> Message
+ pub fn get(&mut self) -> T
  {
   self.messages.pop_front().unwrap()
  }
