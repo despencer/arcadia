@@ -8,33 +8,71 @@ pub enum ActorLifecycle
 {
  #[default]
  Empty,
- Death { id: u64}
+ Death { id: u64 },
+ Make { parent: u64, credits: u32, home: u64, startup: Vec<u8>  }
+}
+
+#[derive(Default)]
+pub enum ActorInside
+{
+ #[default]
+ Empty,
+ Make { credits: u32, startup: Vec<u8> }
 }
 
 #[derive(Default)]
 pub struct Body
 {
- credits: u32
+ pub id: u64,
+ home: u64,
+ credits: u32,
+ inside: Dispatcher<ActorInside>
 }
 
 impl Body
 {
  pub fn get_credits(&self) -> u32
  { self.credits }
+
+ pub fn birth(&mut self, credits: u32, startup: Vec<u8>)
+ {
+  log::debug!("Body birth request {} have {}", credits, self.credits);
+  if credits < self.credits
+   {
+   self.credits -= credits;
+   self.inside.put( ActorInside::Make { credits: credits, startup: startup } );
+   }
+ }
+
+ pub fn tick(&mut self, outside: &mut Dispatcher<ActorLifecycle>)
+ {
+  while self.inside.len() > 0
+     {
+     match self.inside.get()
+       {
+         ActorInside::Make {credits, startup} => outside.put( ActorLifecycle::Make { parent: self.id, credits: credits, home: self.home, startup:startup } ),
+         _ => {}
+       }
+     }
+
+ }
 }
 
 #[derive(Default)]
 pub struct Actor
 {
- pub id: u64,
  body: Body,
  control: Control
 }
 
 impl Actor
 {
- pub fn tick(&mut self)
+ pub fn get_id(&self) -> u64
+ { self.body.id }
+
+ pub fn tick(&mut self, dispatcher: &mut Dispatcher<ActorLifecycle>)
  {
+  self.body.tick(dispatcher);
   self.control.tick(&mut self.body);
  }
 
@@ -43,7 +81,7 @@ impl Actor
   if self.body.credits >= amount
     {  self.body.credits -= amount; }
   else
-    { self.body.credits = 0; dispatcher.put( ActorLifecycle::Death {id : self.id} ); }
+    { self.body.credits = 0; dispatcher.put( ActorLifecycle::Death {id : self.body.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)
@@ -51,21 +89,33 @@ impl Actor
   self.body.credits = self.body.credits.saturating_add(amount);
  }
 
+ pub fn new(id: u64, credits: u32, home: u64,  startup: Vec<u8>) -> Actor
+ {
+  let mut actor = Actor::default();
+  actor.body.id = id;
+  actor.body.home = home;
+  actor.body.credits = credits;
+  actor.control.new(startup);
+  actor
+ }
+
  pub fn load_1<R:Read>(source: &mut R) -> Result<Self>
  {
    let mut actor = Actor::default();
-   actor.id = source.read_u64::<LittleEndian>()?;
-   log::debug!("Actor {} loading", actor.id);
+   actor.body.id = source.read_u64::<LittleEndian>()?;
+   actor.body.home = source.read_u64::<LittleEndian>()?;
+   log::debug!("Actor {} loading", actor.body.id);
    actor.body.credits = source.read_u32::<LittleEndian>()?;
    actor.control.load_1(source)?;
-   log::debug!("Actor {} loaded, {} credits", actor.id, actor.body.credits);
+   log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
  }
 
  pub fn save_1<W:Write>(&self, target: &mut W) -> Result<()>
  {
-   log::debug!("Saving actor {}", self.id);
-   target.write_u64::<LittleEndian>(self.id)?;
+   log::debug!("Saving actor {}", self.body.id);
+   target.write_u64::<LittleEndian>(self.body.id)?;
+   target.write_u64::<LittleEndian>(self.body.home)?;
    target.write_u32::<LittleEndian>(self.body.credits)?;
    self.control.save_1(target)?;
    Ok(())

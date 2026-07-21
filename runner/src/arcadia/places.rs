@@ -33,7 +33,7 @@ impl Container
   for a in &self.actors
     {
     actors.get_mut(*a).unwrap().billing(self.billing, dispatcher);
-    actors.get_mut(*a).unwrap().tick();
+    actors.get_mut(*a).unwrap().tick(dispatcher);
     }
  }
 
@@ -64,6 +64,9 @@ impl Container
 
 impl World
 {
+ pub fn get_id(&self) -> u64
+ { self.id }
+
  pub fn tick(&mut self, actors: &mut Depot<Actor>)
  {
   if self.actors.len() > 0
@@ -80,6 +83,12 @@ impl World
   if let Some(index) = self.actors.iter().position(|x| *x == actor)
     { self.actors.remove(index); }
   log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
+ }
+
+ pub fn add_actor(&mut self, actor: DepotIndex)
+ {
+  log::info!("World {} add actor {:?}", self.id, actor);
+  self.actors.push(actor);
  }
 
  pub fn load_1<R:Read>(source: &mut R, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
@@ -109,7 +118,7 @@ impl World
    log::debug!("World {} saving, {} actors", self.id, self.actors.len());
    target.write_u32::<LittleEndian>(self.actors.len() as u32)?;
    for iactor in self.actors.iter()
-      { target.write_u64::<LittleEndian>(actors.get(*iactor).unwrap().id)?; }
+      { target.write_u64::<LittleEndian>(actors.get(*iactor).unwrap().get_id())?; }
    Ok(())
  }
 }

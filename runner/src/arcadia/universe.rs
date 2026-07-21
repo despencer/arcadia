@@ -15,7 +15,8 @@ pub struct Storage
 {
  pub actors: Depot<Actor>,
  pub worlds: Depot<World>,
- pub alookup: HashMap<u64, DepotIndex>
+ pub alookup: HashMap<u64, DepotIndex>,
+ pub wlookup: HashMap<u64, DepotIndex>
 }
 
 #[derive(Default)]
@@ -44,7 +45,7 @@ impl Universe
   log::debug!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
-     let actor = Actor::load_1(source)?; let aid = actor.id;
+     let actor = Actor::load_1(source)?; let aid = actor.get_id();
      let iactor = self.storage.actors.insert(actor);
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
@@ -52,8 +53,9 @@ impl Universe
   log::debug!("Universe reading {} worlds", countw);
   for _i in 0..countw
      {
-     let world = World::load_1(source, &self.storage.alookup)?; let iworld = self.storage.worlds.insert(world);
-     self.realm.insert(iworld);
+     let world = World::load_1(source, &self.storage.alookup)?; let wid = world.get_id();
+     let iworld = self.storage.worlds.insert(world);
+     self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
   log::debug!("Universe loading finished");
   Ok(())
@@ -110,6 +112,7 @@ impl Universe
      match self.dispatcher.get()
        {
          ActorLifecycle::Death {id} => self.drop_actor(id),
+         ActorLifecycle::Make {parent, credits, home, startup} => self.make_actor(parent, credits, home, startup),
          _ => {}
        }
      }
@@ -120,8 +123,30 @@ impl Universe
   *self.storage.alookup.get(&id).unwrap()
  }
 
+ pub fn lookup_world(&self, id: u64) -> DepotIndex
+ {
+  *self.storage.wlookup.get(&id).unwrap()
+ }
+
+ pub fn gen_id(&mut self) -> u64
+ {
+  self.lastseqid += 1;
+  self.lastseqid
+ }
+
+ pub fn make_actor(&mut self, parent: u64, credits: u32, home: u64, startup: Vec<u8>)
+ {
+  log::info!("New actor request from {} with {} credits", parent, credits);
+  let actor = Actor::new(self.gen_id(), credits, home, startup); let aid = actor.get_id();
+  let iactor = self.storage.actors.insert(actor);
+  self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
+  let homeworld =  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap();
+  homeworld.add_actor(iactor);
+ }
+
  pub fn drop_actor(&mut self, id: u64)
  {
+  log::info!("Drop actor {} request", id);
   let iactor = self.lookup_actor(id);
   self.commune.drop_actor(iactor);
   self.realm.drop_actor(&mut self.storage.worlds, iactor);
