@@ -36,13 +36,13 @@ impl Universe
 {
  pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
  {
-  log::debug!("Universe loading started");
+  log::info!("Universe loading started");
   self.timetick = source.read_u64::<LittleEndian>()?;
   self.lastseqid = source.read_u64::<LittleEndian>()?;
-  log::debug!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
+  log::info!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
   self.commune.load_1(source)?;
   let counta = source.read_u32::<LittleEndian>()? as usize;
-  log::debug!("Universe reading {} actors", counta);
+  log::info!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
      let actor = Actor::load_1(source)?; let aid = actor.get_id();
@@ -50,14 +50,14 @@ impl Universe
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
   let countw = source.read_u32::<LittleEndian>()? as usize;
-  log::debug!("Universe reading {} worlds", countw);
+  log::info!("Universe reading {} worlds", countw);
   for _i in 0..countw
      {
      let world = World::load_1(source, &self.storage.alookup)?; let wid = world.get_id();
      let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
-  log::debug!("Universe loading finished");
+  log::info!("Universe loading finished");
   Ok(())
  }
 
@@ -67,7 +67,7 @@ impl Universe
   target.write_u64::<LittleEndian>(self.lastseqid)?;
   self.commune.save_1(target)?;
   target.write_u32::<LittleEndian>(self.storage.actors.len() as u32)?;
-  log::debug!("Universe saving {} actors", self.storage.actors.len());
+  log::info!("Universe saving {} actors", self.storage.actors.len());
   for actor in self.storage.actors.iterdata()
       { actor.save_1(target)?; }
   target.write_u32::<LittleEndian>(self.storage.worlds.len() as u32)?;
