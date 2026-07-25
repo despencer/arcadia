@@ -3,11 +3,11 @@
 import arcadia
 
 def report(uni):
-    print(f'At tick {uni.timetick}, billing {uni.billing}')
+    print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:
-        print(f'Actor #{a.id}, credits {a.credits} at #{a.home.id}, birth {a.control.threshold} at {a.control.giveaway}')
+        print(f'Actor #{a.id}, credits {a.credits} at #{a.home.id}, birth {a.control.giveaway} at {a.control.threshold}')
 
 def main():
     import argparse

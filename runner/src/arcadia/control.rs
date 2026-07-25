@@ -3,6 +3,38 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
 
+pub struct Sampler
+{
+ nominal: u32,
+ selector: Normal<f32>
+}
+
+impl Default for Sampler
+{
+ fn default() -> Self
+ {
+  Sampler { nominal: 0, selector: Normal::new(0.0, 1.0).unwrap() }
+ }
+}
+
+impl Sampler
+{
+ pub fn set(&mut self, value: u32)
+ {
+  self.nominal = value;
+  self.selector = Normal::new(value as f32, (value as f32)/10.0).unwrap();
+ }
+
+ pub fn sample(&self) -> u32
+ {
+  let mut rng = rand::thread_rng();
+  let r = self.selector.sample(&mut rng);
+  if r <= 0.0
+     { return 0; }
+  r as u32
+ }
+}
+
 pub struct Control
 {
  threshold: u32,

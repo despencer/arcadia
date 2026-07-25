@@ -4,19 +4,12 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::dispatcher::Dispatcher;
+use crate::arcadia::control::Sampler;
 
 #[derive(Default)]
 pub struct Container
 {
  billing: u32,
- actors: Vec<DepotIndex>
-}
-
-#[derive(Default)]
-pub struct World
-{
- id: u64,
- production: u32,
  actors: Vec<DepotIndex>
 }
 
@@ -62,6 +55,15 @@ impl Container
 
 }
 
+#[derive(Default)]
+pub struct World
+{
+ id: u64,
+ production: u32,
+ feeder: Sampler,
+ actors: Vec<DepotIndex>
+}
+
 impl World
 {
  pub fn get_id(&self) -> u64
@@ -71,9 +73,9 @@ impl World
  {
   if self.actors.len() > 0
     {
-    let prod = self.production / ( self.actors.len() as u32 );
+//    let prod = self.production / ( self.actors.len() as u32 );
     for a in &self.actors
-       { actors.get_mut(*a).unwrap().feed(prod); }
+       { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }
  }
 
@@ -82,6 +84,7 @@ impl World
   log::info!("World {} drop actor {:?}", self.id, actor);
   if let Some(index) = self.actors.iter().position(|x| *x == actor)
     { self.actors.remove(index); }
+  self.adjust_feeder();
   log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
  }
 
@@ -89,6 +92,19 @@ impl World
  {
   log::info!("World {} add actor {:?}", self.id, actor);
   self.actors.push(actor);
+  self.adjust_feeder();
+ }
+
+ pub fn adjust_feeder(&mut self)
+ {
+  if self.actors.len() > 0
+    {
+    self.feeder.set( self.production / (self.actors.len() as u32) );
+    }
+  else
+    {
+    self.feeder.set(0);
+    }
  }
 
  pub fn load_1<R:Read>(source: &mut R, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
@@ -107,6 +123,7 @@ impl World
      else
          { return Err(Error::new(ErrorKind::InvalidData, "Actor not found")); }
      }
+   world.adjust_feeder();
    log::debug!("World {} loaded", world.id);
    Ok(world)
  }
