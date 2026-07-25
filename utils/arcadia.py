@@ -24,6 +24,27 @@ class Reader:
         for i in range(acount):
             alist.append( reader(self) )
 
+class Writer:
+    def __init__(self, fs):
+        self.fs = fs
+
+    def write_u(self, value, size):
+        self.fs.write( value.to_bytes(size, msb) )
+
+    def u16(self, value):
+        return self.write_u(value, 2)
+
+    def u32(self, value):
+        return self.write_u(value, 4)
+
+    def u64(self, value):
+        return self.write_u(value, 8)
+
+    def array(self, alist, writer):
+        self.u32(len(alist))
+        for item in alist:
+            writer(item, self)
+
 class Control:
     def __init__(self):
         self.threshold = 0
@@ -50,6 +71,13 @@ class Actor:
     def update(self, reader):
         self.home = reader.worlds[self.home]
 
+    def save(self, writer):
+        writer.u64(self.id)
+        writer.u64(self.home.id)
+        writer.u32(self.credits)
+        writer.u32(self.control.threshold)
+        writer.u32(self.control.giveaway)
+
 class World:
     def __init__(self):
         self.id = 0
@@ -67,13 +95,37 @@ class World:
         reader.worlds[world.id] = world
         return world
 
+    def save(self, writer):
+        writer.u64(self.id)
+        writer.u32(self.production)
+        writer.u32(len(self.actors))
+        for a in self.actors:
+            writer.u64(a.id)
+
 class Universe:
     def __init__(self):
         self.timetick = 0
-        self.lastseqid = 1
+        self.lastseqid = 0
         self.billing = 0
         self.actors = []
         self.worlds = []
+
+    def genid(self):
+        self.lastseqid += 1
+        return self.lastseqid
+
+    def addworld(self):
+        world = World()
+        world.id = self.genid()
+        self.worlds.append(world)
+        return world
+
+    def addactor(self, home):
+        actor = Actor()
+        actor.home = home
+        actor.id = self.genid()
+        self.actors.append(actor)
+        return actor
 
     @classmethod
     def load(cls, fs):
@@ -90,6 +142,15 @@ class Universe:
         for a in uni.actors:
             a.update(reader)
         return uni
+
+    def save(self, fs):
+        writer = Writer(fs)
+        writer.u16(UNIVERSE_VERSION)
+        writer.u64(self.timetick)
+        writer.u64(self.lastseqid)
+        writer.u32(self.billing)
+        writer.array(self.actors, Actor.save)
+        writer.array(self.worlds, World.save)
 
 def load(fs):
     return Universe.load(fs)

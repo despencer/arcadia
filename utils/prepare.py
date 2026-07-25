@@ -1,41 +1,18 @@
 #!/usr/bin/env python
 
-msb='little'
-UNIVERSE_VERSION=1
-UNIVERSE_SEQID = 2
-ACTOR_ID = 1
-WORLD_ID = 2
+import arcadia
 
-def save_actor(fs):
-    fs.write( ACTOR_ID.to_bytes(8, msb) ) # Actor ID
-    fs.write( WORLD_ID.to_bytes(8, msb) ) # home World ID
-    credits = 1000
-    fs.write( credits.to_bytes(4, msb) )   # amount of credits
-    threshold = 750
-    fs.write( threshold.to_bytes(4, msb) )   # threshold to make a child
-    giveaway = 400
-    fs.write( giveaway.to_bytes(4, msb) )   # an initial value to give a child
-
-def save_world(fs):
-    fs.write( WORLD_ID.to_bytes(8, msb) ) # WORLD ID
-    production = 100
-    fs.write( production.to_bytes(4, msb) )   # amount of credits per tick
-    ucount = 1
-    fs.write( ucount.to_bytes(4, msb) )   # number of actors in the world
-    fs.write( ACTOR_ID.to_bytes(8, msb) ) # Actor ID
-
-def save(fs):
-    fs.write( UNIVERSE_VERSION.to_bytes(2, msb) )
-    ticks = 0
-    fs.write( ticks.to_bytes(8, msb) )
-    fs.write( UNIVERSE_SEQID.to_bytes(8, msb) )
-    billing = 10
-    fs.write( billing.to_bytes(4, msb) )
-    ucount = 1
-    fs.write( ucount.to_bytes(4, msb) )   # number of actors
-    save_actor(fs)
-    fs.write( ucount.to_bytes(4, msb) )   # number of worlds
-    save_world(fs)
+def make():
+    uni = arcadia.Universe()
+    uni.billing = 10
+    world = uni.addworld()
+    world.production = 100
+    actor = uni.addactor(world)
+    actor.credits = 1000
+    actor.control.threshold = 750
+    actor.control.giveaway = 400
+    world.actors.append(actor)
+    return uni
 
 def main():
     import argparse
@@ -45,7 +22,7 @@ def main():
     args = parser.parse_args()
 
     with open(args.filename, 'wb') as f:
-        save(f)
+        make().save(f)
 
 if __name__ == "__main__":
     main()
