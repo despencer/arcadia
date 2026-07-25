@@ -73,7 +73,6 @@ impl World
  {
   if self.actors.len() > 0
     {
-//    let prod = self.production / ( self.actors.len() as u32 );
     for a in &self.actors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }
