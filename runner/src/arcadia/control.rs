@@ -39,7 +39,9 @@ impl Sampler
 pub struct Control
 {
  threshold: Sampler,
- giveaway: Sampler
+ giveaway: Sampler,
+ birth: bool,
+ to_child: Option<u32>
 }
 
 impl Control
@@ -47,15 +49,16 @@ impl Control
  pub fn tick(&mut self, body: &mut Body)
  {
   if self.threshold.sample() < body.get_credits()
-  {
-    let giveaway = self.giveaway.sample();
-    if giveaway > 0
-       {
+      { self.birth = true; }
+  if self.birth
+    { self.to_child = Some(self.giveaway.sample()); self.birth = false; }
+  if let Some(giveaway) = self.to_child
+    {
        let mut startup : Vec<u8> = vec![];
        self.save_1(&mut startup).unwrap();
        body.birth(giveaway, startup);
-       }
-  }
+       self.to_child = None;
+   }
  }
 
  pub fn new(&mut self, startup: Vec<u8>)
