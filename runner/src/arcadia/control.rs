@@ -35,9 +35,41 @@ impl Sampler
  }
 }
 
+pub struct CreditSensor
+{
+ precision: u32,
+ selector: Normal<f32>
+}
+
+impl Default for CreditSensor
+{
+ fn default() -> Self
+ {
+  CreditSensor { precision: 0, selector: Normal::new(0.0, 1.0).unwrap() }
+ }
+}
+
+impl CreditSensor
+{
+ fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ {
+  self.precision = source.read_u32::<LittleEndian>()?;
+  self.selector = Normal::new(0.0, (self.precision as f32)/1000.0).unwrap();
+  Ok( () )
+ }
+
+ fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  target.write_u32::<LittleEndian>(self.precision)?;
+  Ok(())
+ }
+}
+
+
 #[derive(Default)]
 pub struct Control
 {
+ creditsensor: CreditSensor,
  threshold: Sampler,
  giveaway: Sampler,
  birth: bool,
@@ -69,6 +101,7 @@ impl Control
 
  pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
  {
+   self.creditsensor.load_1(source)?;
    self.threshold.set( source.read_u32::<LittleEndian>()? );
    self.giveaway.set( source.read_u32::<LittleEndian>()? );
    log::debug!("Control loaded, threshold {}", self.threshold.nominal);
@@ -77,6 +110,7 @@ impl Control
 
  pub fn save_1<W:Write>(&self, target: &mut W) -> Result<()>
  {
+   self.creditsensor.save_1(target)?;
    target.write_u32::<LittleEndian>(self.threshold.nominal)?;
    target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
    Ok(())

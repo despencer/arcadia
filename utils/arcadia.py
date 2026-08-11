@@ -47,8 +47,19 @@ class Writer:
 
 class Control:
     def __init__(self):
+        self.creditsensor = 10
         self.threshold = 0
         self.giveaway = 0
+
+    def load(self, reader):
+        self.creditsensor = reader.u32()
+        self.threshold = reader.u32()
+        self.giveaway = reader.u32()
+
+    def save(self, writer):
+        writer.u32(self.creditsensor)
+        writer.u32(self.threshold)
+        writer.u32(self.giveaway)
 
 class Actor:
     def __init__(self):
@@ -63,8 +74,7 @@ class Actor:
         actor.id = reader.u64()
         actor.home = reader.u64()
         actor.credits = reader.u32()
-        actor.control.threshold = reader.u32()
-        actor.control.giveaway = reader.u32()
+        actor.control.load(reader)
         reader.actors[actor.id] = actor
         return actor
 
@@ -75,8 +85,7 @@ class Actor:
         writer.u64(self.id)
         writer.u64(self.home.id)
         writer.u32(self.credits)
-        writer.u32(self.control.threshold)
-        writer.u32(self.control.giveaway)
+        self.control.save(writer)
 
 class World:
     def __init__(self):
