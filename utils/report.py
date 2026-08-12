@@ -7,7 +7,7 @@ def report(uni):
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:
-        print(f'Actor #{a.id}, credits {a.credits} ({a.control.values.credits}) at #{a.home.id}, birth {a.control.giveaway} at {a.control.threshold}')
+        print(f'Actor #{a.id}, credits {a.credits} (cr={a.control.values.credits}, birth={a.control.values.birth}) at #{a.home.id}, birth {a.control.giveaway} at {a.control.threshold}')
 
 def main():
     import argparse

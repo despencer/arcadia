@@ -12,6 +12,9 @@ class Reader:
     def read_u(self, size):
         return int.from_bytes(self.fs.read(size), msb)
 
+    def u8(self):
+        return self.read_u(1)
+
     def u16(self):
         return self.read_u(2)
 
@@ -23,6 +26,9 @@ class Reader:
 
     def f32(self):
         return struct.unpack('<f', self.fs.read(4))[0]
+
+    def bl(self):
+        return (self.u8() != 0)
 
     def array(self, alist, reader):
         acount = self.u32()
@@ -36,6 +42,9 @@ class Writer:
     def write_u(self, value, size):
         self.fs.write( value.to_bytes(size, msb) )
 
+    def u8(self, value):
+        return self.write_u(value, 1)
+
     def u16(self, value):
         return self.write_u(value, 2)
 
@@ -48,6 +57,12 @@ class Writer:
     def f32(self, value):
         return self.fs.write( struct.pack('<f', value) )
 
+    def bl(self, value):
+        if value:
+            self.u8(1)
+        else:
+            self.u8(0)
+
     def array(self, alist, writer):
         self.u32(len(alist))
         for item in alist:
@@ -56,28 +71,50 @@ class Writer:
 class Values:
     def __init__(self):
         self.credits = 0.0
+        self.birth = False
 
     def load(self, reader):
         self.credits = reader.f32()
+        self.birth = reader.bl()
 
     def save(self, writer):
         writer.f32(self.credits)
+        writer.bl(self.birth)
+
+class BirthSignal:
+    def __init__(self):
+        self.scale = 0
+        self.threshold = 0
+        self.variation = 0
+
+    def load(self, reader):
+        self.scale = reader.f32()
+        self.threshold = reader.f32()
+        self.variation = reader.f32()
+
+    def save(self, writer):
+        writer.f32(self.scale)
+        writer.f32(self.threshold)
+        writer.f32(self.variation)
 
 class Control:
     def __init__(self):
         self.creditsensor = 0
+        self.birthsignal = BirthSignal()
         self.values = Values()
         self.threshold = 0
         self.giveaway = 0
 
     def load(self, reader):
         self.creditsensor = reader.u32()
+        self.birthsignal.load(reader)
         self.values.load(reader)
         self.threshold = reader.u32()
         self.giveaway = reader.u32()
 
     def save(self, writer):
         writer.u32(self.creditsensor)
+        self.birthsignal.save(writer)
         self.values.save(writer)
         writer.u32(self.threshold)
         writer.u32(self.giveaway)
