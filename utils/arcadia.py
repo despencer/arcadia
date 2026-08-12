@@ -1,3 +1,5 @@
+import struct
+
 msb='little'
 UNIVERSE_VERSION=1
 
@@ -18,6 +20,9 @@ class Reader:
 
     def u64(self):
         return self.read_u(8)
+
+    def f32(self):
+        return struct.unpack('<f', self.fs.read(4))[0]
 
     def array(self, alist, reader):
         acount = self.u32()
@@ -40,24 +45,40 @@ class Writer:
     def u64(self, value):
         return self.write_u(value, 8)
 
+    def f32(self, value):
+        return self.fs.write( struct.pack('<f', value) )
+
     def array(self, alist, writer):
         self.u32(len(alist))
         for item in alist:
             writer(item, self)
 
+class Values:
+    def __init__(self):
+        self.credits = 0.0
+
+    def load(self, reader):
+        self.credits = reader.f32()
+
+    def save(self, writer):
+        writer.f32(self.credits)
+
 class Control:
     def __init__(self):
-        self.creditsensor = 10
+        self.creditsensor = 0
+        self.values = Values()
         self.threshold = 0
         self.giveaway = 0
 
     def load(self, reader):
         self.creditsensor = reader.u32()
+        self.values.load(reader)
         self.threshold = reader.u32()
         self.giveaway = reader.u32()
 
     def save(self, writer):
         writer.u32(self.creditsensor)
+        self.values.save(writer)
         writer.u32(self.threshold)
         writer.u32(self.giveaway)
 

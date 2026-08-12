@@ -9,6 +9,8 @@ def make():
     world.production = 100
     actor = uni.addactor(world)
     actor.credits = 1000
+    actor.control.creditsensor = 10
+    actor.control.values.credits = 1000.0
     actor.control.threshold = 750
     actor.control.giveaway = 400
     world.actors.append(actor)
