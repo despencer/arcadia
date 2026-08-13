@@ -68,18 +68,34 @@ class Writer:
         for item in alist:
             writer(item, self)
 
+class Seed:
+    def __init__(self):
+        self.credits = 0
+
+    @classmethod
+    def load(cls, reader):
+        seed = cls()
+        seed.credits = reader.u32()
+        return seed
+
+    def save(self, writer):
+        writer.u32(self.credits)
+
 class Values:
     def __init__(self):
         self.credits = 0.0
         self.birth = False
+        self.birthcredits = []
 
     def load(self, reader):
         self.credits = reader.f32()
         self.birth = reader.bl()
+        reader.array(self.birthcredits, Seed.load)
 
     def save(self, writer):
         writer.f32(self.credits)
         writer.bl(self.birth)
+        writer.array(self.birthcredits, Seed.save)
 
 class BirthSignal:
     def __init__(self):
@@ -101,6 +117,7 @@ class Control:
     def __init__(self):
         self.creditsensor = 0
         self.birthsignal = BirthSignal()
+        self.birthgiveaway = 0
         self.values = Values()
         self.threshold = 0
         self.giveaway = 0
@@ -108,6 +125,7 @@ class Control:
     def load(self, reader):
         self.creditsensor = reader.u32()
         self.birthsignal.load(reader)
+        self.birthgiveaway = reader.u32()
         self.values.load(reader)
         self.threshold = reader.u32()
         self.giveaway = reader.u32()
@@ -115,6 +133,7 @@ class Control:
     def save(self, writer):
         writer.u32(self.creditsensor)
         self.birthsignal.save(writer)
+        writer.u32(self.birthgiveaway)
         self.values.save(writer)
         writer.u32(self.threshold)
         writer.u32(self.giveaway)

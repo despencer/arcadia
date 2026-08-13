@@ -1,4 +1,5 @@
 use std::io::{Result, Read, Write};
+use std::collections::VecDeque;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
@@ -114,12 +115,64 @@ impl BirthSignal
  }
 }
 
+#[derive(Default)]
+pub struct BirthCredit
+{
+ giveaway: Sampler
+}
+
+impl BirthCredit
+{
+ fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ {
+  self.giveaway.set( source.read_u32::<LittleEndian>()? );
+  Ok(())
+ }
+ fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
+  Ok(())
+ }
+ pub fn tick(&mut self, values: &mut Values, body: &mut Body)
+ {
+  let mut giveaway = self.giveaway.sample();
+  giveaway = body.take_credits(giveaway);
+  if giveaway > 0
+     { values.birthcredits.push_back( Seed::new(self.giveaway.sample()) ) }
+ }
+}
+
+pub struct Seed
+{
+ credits: u32
+}
+
+impl Seed
+{
+ pub fn new(credits: u32) -> Seed
+ {
+  Seed { credits: credits }
+ }
+
+ pub fn load_1(source: &mut dyn Read) -> Result<Self>
+ {
+  let credits = source.read_u32::<LittleEndian>()?;
+  Ok( Seed { credits: credits } )
+ }
+
+ pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  target.write_u32::<LittleEndian>(self.credits)?;
+  Ok( () )
+ }
+}
 
 #[derive(Default)]
 pub struct Values
 {
  credits: f32,
- birth: bool
+ birth: bool,
+ birthcredits: VecDeque<Seed>
 }
 
 impl Values
@@ -128,6 +181,9 @@ impl Values
  {
   self.credits = source.read_f32::<LittleEndian>()?;
   self.birth = (source.read_u8()?) != 0;
+  let countbc = source.read_u32::<LittleEndian>()? as usize;
+  for _ in 0..countbc
+    { self.birthcredits.push_back( Seed::load_1(source)? ); }
   Ok( () )
  }
 
@@ -135,6 +191,9 @@ impl Values
  {
   target.write_f32::<LittleEndian>(self.credits)?;
   target.write_u8(self.birth as u8)?;
+  target.write_u32::<LittleEndian>(self.birthcredits.len() as u32)?;
+  for seed in self.birthcredits.iter()
+      { seed.save_1(target)?; }
   Ok(())
  }
 }
@@ -144,6 +203,7 @@ pub struct Control
 {
  creditsensor: CreditSensor,
  birthsignal: BirthSignal,
+ birthcredit: BirthCredit,
  values: Values,
  threshold: Sampler,
  giveaway: Sampler,
@@ -157,6 +217,7 @@ impl Control
  {
   self.creditsensor.tick(&mut self.values, body);
   self.birthsignal.tick(&mut self.values, body);
+  self.birthcredit.tick(&mut self.values, body);
   if self.threshold.sample() < body.get_credits()
       { self.birth = true; }
   if self.birth
@@ -180,6 +241,7 @@ impl Control
  {
    self.creditsensor.load_1(source)?;
    self.birthsignal.load_1(source)?;
+   self.birthcredit.load_1(source)?;
    self.values.load_1(source)?;
    self.threshold.set( source.read_u32::<LittleEndian>()? );
    self.giveaway.set( source.read_u32::<LittleEndian>()? );
@@ -191,6 +253,7 @@ impl Control
  {
    self.creditsensor.save_1(target)?;
    self.birthsignal.save_1(target)?;
+   self.birthcredit.save_1(target)?;
    self.values.save_1(target)?;
    target.write_u32::<LittleEndian>(self.threshold.nominal)?;
    target.write_u32::<LittleEndian>(self.giveaway.nominal)?;

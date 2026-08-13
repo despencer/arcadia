@@ -34,6 +34,9 @@ impl Body
  pub fn get_credits(&self) -> u32
  { self.credits }
 
+ pub fn take_credits(&mut self, _amount: u32) -> u32
+ { 0 }
+
  pub fn birth(&mut self, credits: u32, startup: Vec<u8>)
  {
   log::debug!("Body birth request {} have {}", credits, self.credits);

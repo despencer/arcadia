@@ -13,6 +13,7 @@ def make():
     actor.control.birthsignal.scale = 800.0
     actor.control.birthsignal.threshold = -1.0
     actor.control.birthsignal.variation = 0.3
+    actor.control.birthgiveaway = 400
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
     actor.control.threshold = 750
