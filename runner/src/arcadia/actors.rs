@@ -26,16 +26,23 @@ pub struct Body
  pub id: u64,
  home: u64,
  credits: u32,
+ reserve: u32,
  inside: Dispatcher<ActorInside>
 }
 
 impl Body
 {
  pub fn get_credits(&self) -> u32
- { self.credits }
+ {
+   self.credits.saturating_sub(self.reserve)
+ }
 
- pub fn take_credits(&mut self, _amount: u32) -> u32
- { 0 }
+ pub fn take_credits(&mut self, amount: u32) -> u32
+ {
+  let ret = self.get_credits().saturating_sub(amount);
+  self.reserve += ret;
+  ret
+ }
 
  pub fn birth(&mut self, credits: u32, startup: Vec<u8>)
  {
@@ -109,6 +116,7 @@ impl Actor
    actor.body.home = source.read_u64::<LittleEndian>()?;
    log::debug!("Actor {} loading", actor.body.id);
    actor.body.credits = source.read_u32::<LittleEndian>()?;
+   actor.body.reserve = source.read_u32::<LittleEndian>()?;
    actor.control.load_1(source)?;
    log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
@@ -120,6 +128,7 @@ impl Actor
    target.write_u64::<LittleEndian>(self.body.id)?;
    target.write_u64::<LittleEndian>(self.body.home)?;
    target.write_u32::<LittleEndian>(self.body.credits)?;
+   target.write_u32::<LittleEndian>(self.body.reserve)?;
    self.control.save_1(target)?;
    Ok(())
  }

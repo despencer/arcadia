@@ -81,6 +81,9 @@ class Seed:
     def save(self, writer):
         writer.u32(self.credits)
 
+    def __repr__(self):
+        return f"Seed {self.credits}"
+
 class Values:
     def __init__(self):
         self.credits = 0.0
@@ -143,6 +146,7 @@ class Actor:
         self.id = 0
         self.home = None
         self.credits = 0
+        self.reserve = 0
         self.control = Control()
 
     @classmethod
@@ -151,6 +155,7 @@ class Actor:
         actor.id = reader.u64()
         actor.home = reader.u64()
         actor.credits = reader.u32()
+        actor.reserve = reader.u32()
         actor.control.load(reader)
         reader.actors[actor.id] = actor
         return actor
@@ -162,6 +167,7 @@ class Actor:
         writer.u64(self.id)
         writer.u64(self.home.id)
         writer.u32(self.credits)
+        writer.u32(self.reserve)
         self.control.save(writer)
 
 class World:
