@@ -65,7 +65,7 @@ impl CreditSensor
   Ok(())
  }
 
- pub fn tick(&mut self, values: &mut Values, body: &mut Body)
+ pub fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
   let mut rng = rand::thread_rng();
   values.credits = self.selector.sample(&mut rng) * ( body.get_credits() as f32);
@@ -107,7 +107,7 @@ impl BirthSignal
   Ok(())
  }
 
- pub fn tick(&mut self, values: &mut Values, _body: &mut Body)
+ pub fn tick(&self, _units: &Units, values: &mut Values, _body: &mut Body)
  {
   let mut rng = rand::thread_rng();
   let value = ( values.credits / self.scale) + self.threshold;
@@ -133,7 +133,7 @@ impl BirthCredit
   target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
   Ok(())
  }
- pub fn tick(&mut self, values: &mut Values, body: &mut Body)
+ pub fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
   let mut giveaway = self.giveaway.sample();
   giveaway = body.take_credits(giveaway);
@@ -199,11 +199,44 @@ impl Values
 }
 
 #[derive(Default)]
-pub struct Control
+pub struct Units
 {
  creditsensor: CreditSensor,
  birthsignal: BirthSignal,
  birthcredit: BirthCredit,
+}
+
+impl Units
+{
+ pub fn tick(&self, values: &mut Values, body: &mut Body)
+ {
+  self.creditsensor.tick(self, values, body);
+  self.birthsignal.tick(self, values, body);
+  self.birthcredit.tick(self, values, body);
+ }
+
+ pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ {
+   self.creditsensor.load_1(source)?;
+   self.birthsignal.load_1(source)?;
+   self.birthcredit.load_1(source)?;
+   Ok(())
+ }
+
+ pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+   self.creditsensor.save_1(target)?;
+   self.birthsignal.save_1(target)?;
+   self.birthcredit.save_1(target)?;
+   Ok(())
+ }
+
+}
+
+#[derive(Default)]
+pub struct Control
+{
+ units: Units,
  values: Values,
  threshold: Sampler,
  giveaway: Sampler,
@@ -215,9 +248,7 @@ impl Control
 {
  pub fn tick(&mut self, body: &mut Body)
  {
-  self.creditsensor.tick(&mut self.values, body);
-  self.birthsignal.tick(&mut self.values, body);
-  self.birthcredit.tick(&mut self.values, body);
+  self.units.tick(&mut self.values, body);
   if self.threshold.sample() < body.get_credits()
       { self.birth = true; }
   if self.birth
@@ -237,11 +268,9 @@ impl Control
   self.load_1(&mut reader).unwrap();
  }
 
- pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
+ pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
-   self.creditsensor.load_1(source)?;
-   self.birthsignal.load_1(source)?;
-   self.birthcredit.load_1(source)?;
+   self.units.load_1(source)?;
    self.values.load_1(source)?;
    self.threshold.set( source.read_u32::<LittleEndian>()? );
    self.giveaway.set( source.read_u32::<LittleEndian>()? );
@@ -249,11 +278,9 @@ impl Control
    Ok(())
  }
 
- pub fn save_1<W:Write>(&self, target: &mut W) -> Result<()>
+ pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
-   self.creditsensor.save_1(target)?;
-   self.birthsignal.save_1(target)?;
-   self.birthcredit.save_1(target)?;
+   self.units.save_1(target)?;
    self.values.save_1(target)?;
    target.write_u32::<LittleEndian>(self.threshold.nominal)?;
    target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
