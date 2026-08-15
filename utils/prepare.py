@@ -9,11 +9,11 @@ def make():
     world.production = 100
     actor = uni.addactor(world)
     actor.credits = 1000
-    actor.control.creditsensor = 10
+    actor.control.creditsensor.precision = 10
     actor.control.birthsignal.scale = 800.0
     actor.control.birthsignal.threshold = -1.0
-    actor.control.birthsignal.variation = 0.3
-    actor.control.birthgiveaway = 400
+    actor.control.birthsignal.variation = 300
+    actor.control.birthcredit.giveaway = 400
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
     actor.control.threshold = 750

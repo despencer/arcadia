@@ -36,6 +36,13 @@ impl Sampler
  }
 }
 
+trait Unit
+{
+ fn load_1(&mut self, source: &mut dyn Read) -> Result<()>;
+ fn save_1(&self, target: &mut dyn Write) -> Result<()>;
+ fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body);
+}
+
 pub struct CreditSensor
 {
  precision: u32,
@@ -50,7 +57,7 @@ impl Default for CreditSensor
  }
 }
 
-impl CreditSensor
+impl Unit for CreditSensor
 {
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -61,11 +68,12 @@ impl CreditSensor
 
  fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
+  target.write_u16::<LittleEndian>(Units::CREDIT_SENSOR)?;
   target.write_u32::<LittleEndian>(self.precision)?;
   Ok(())
  }
 
- pub fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
   let mut rng = rand::thread_rng();
   values.credits = self.selector.sample(&mut rng) * ( body.get_credits() as f32);
@@ -88,7 +96,7 @@ impl Default for BirthSignal
  }
 }
 
-impl BirthSignal
+impl Unit for BirthSignal
 {
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -101,13 +109,14 @@ impl BirthSignal
 
  fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
+  target.write_u16::<LittleEndian>(Units::BIRTH_SIGNAL)?;
   target.write_f32::<LittleEndian>(self.scale)?;
   target.write_f32::<LittleEndian>(self.threshold)?;
   target.write_u32::<LittleEndian>(self.variation)?;
   Ok(())
  }
 
- pub fn tick(&self, _units: &Units, values: &mut Values, _body: &mut Body)
+ fn tick(&self, _units: &Units, values: &mut Values, _body: &mut Body)
  {
   let mut rng = rand::thread_rng();
   let value = ( values.credits / self.scale) + self.threshold;
@@ -121,7 +130,7 @@ pub struct BirthCredit
  giveaway: Sampler
 }
 
-impl BirthCredit
+impl Unit for BirthCredit
 {
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -130,10 +139,11 @@ impl BirthCredit
  }
  fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
+  target.write_u16::<LittleEndian>(Units::BIRTH_CREDIT)?;
   target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
   Ok(())
  }
- pub fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
   let mut giveaway = self.giveaway.sample();
   giveaway = body.take_credits(giveaway);
@@ -147,11 +157,15 @@ pub struct Spawner
 {
 }
 
-impl Spawner
+impl Unit for Spawner
 {
  fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
- fn save_1(&self, _target: &mut dyn Write) -> Result<()> { Ok(()) }
- pub fn tick(&self, _units: &Units, _values: &mut Values, _body: &mut Body)
+ fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  target.write_u16::<LittleEndian>(Units::SPAWNER)?;
+  Ok(())
+ }
+ fn tick(&self, _units: &Units, _values: &mut Values, _body: &mut Body)
  {
  }
 }
@@ -275,37 +289,47 @@ impl Values
 #[derive(Default)]
 pub struct Units
 {
- creditsensor: CreditSensor,
- birthsignal: BirthSignal,
- birthcredit: BirthCredit,
- spawner: Spawner
+ units: Vec<Box<dyn Unit>>,
 }
 
 impl Units
 {
  pub fn tick(&self, values: &mut Values, body: &mut Body)
  {
-  self.creditsensor.tick(self, values, body);
-  self.birthsignal.tick(self, values, body);
-  self.birthcredit.tick(self, values, body);
-  self.spawner.tick(self, values, body);
+  for u in self.units.iter()
+     { u.tick(self, values, body); }
  }
+
+ const CREDIT_SENSOR :u16 = 1;
+ const BIRTH_SIGNAL :u16 = 2;
+ const BIRTH_CREDIT :u16 = 3;
+ const SPAWNER :u16 = 4;
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
-   self.creditsensor.load_1(source)?;
-   self.birthsignal.load_1(source)?;
-   self.birthcredit.load_1(source)?;
-   self.spawner.load_1(source)?;
+  let countu = source.read_u32::<LittleEndian>()? as usize;
+  for _ in 0..countu
+     {
+     let utype = source.read_u16::<LittleEndian>()?;
+     let mut unit : Box<dyn Unit> = match utype
+        {
+        Self::CREDIT_SENSOR => Box::new( CreditSensor::default() ),
+        Self::BIRTH_SIGNAL => Box::new( BirthSignal::default() ),
+        Self::BIRTH_CREDIT => Box::new( BirthCredit::default() ),
+        Self::SPAWNER => Box::new( Spawner::default() ),
+        _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
+        };
+     unit.load_1(source)?;
+     self.units.push(unit);
+     }
    Ok(())
  }
 
  pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
-   self.creditsensor.save_1(target)?;
-   self.birthsignal.save_1(target)?;
-   self.birthcredit.save_1(target)?;
-   self.spawner.save_1(target)?;
+  target.write_u32::<LittleEndian>(self.units.len() as u32)?;
+  for unit in self.units.iter()
+      { unit.save_1(target)?; }
    Ok(())
  }
 

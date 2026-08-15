@@ -3,6 +3,11 @@ import struct
 msb='little'
 UNIVERSE_VERSION=1
 
+CREDIT_SENSOR = 1;
+BIRTH_SIGNAL = 2;
+BIRTH_CREDIT = 3;
+SPAWNER = 4;
+
 class Reader:
     def __init__(self, fs):
         self.fs = fs
@@ -68,18 +73,65 @@ class Writer:
         for item in alist:
             writer(item, self)
 
+class BluePrint:
+    EMPTY = 0
+    FVALUE = 1
+    UVALUE = 2
+    COLLECTION = 3
+
+    def __init__(self):
+        self.value = None
+
+    @classmethod
+    def load(cls, reader):
+        bp = cls()
+        btype = reader.u8()
+        if btype == cls.EMPTY:
+            pass
+        elif btype == cls.FVALUE:
+            bp.value = reader.f32()
+        elif btype == cls.UVALUE:
+            bp.value = reader.u32()
+        elif btype == cls.COLLECTION:
+            bp.value = []
+            for i in range(reader.u32()):
+                bp.value.append( cls.load(reader) )
+        else:
+            raise Exception(f'Unknown blueprint type {btype}')
+        return bp
+
+    def save(self, writer):
+        if self.value == None:
+            writer.u8(cls.EMPTY)
+        elif isinstance(self.value, float):
+            writer.u8(cls.FVALUE)
+            writer.f32(self.value)
+        elif isinstance(self.value, int):
+            writer.u8(cls.UVALUE)
+            writer.u32(self.value)
+        elif isinstance(self.value, list):
+            writer.u8(cls.COLLECTION)
+            writer.u32( len(self.value) )
+            for i in self.value:
+                i.save(writer)
+        else:
+            raise Exception(f'Unknown blueprint type {self.value}')
+
 class Seed:
     def __init__(self):
         self.credits = 0
+        self.blueprints = BluePrint()
 
     @classmethod
     def load(cls, reader):
         seed = cls()
         seed.credits = reader.u32()
+        seed.blueprints = BluePrint.load(reader)
         return seed
 
     def save(self, writer):
         writer.u32(self.credits)
+        self.blueprints.save(writer)
 
     def __repr__(self):
         return f"Seed {self.credits}"
@@ -100,6 +152,17 @@ class Values:
         writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)
 
+class CreditSensor:
+    def __init__(self):
+        self.precision = 0
+
+    def load(self, reader):
+        self.precision = reader.u32()
+
+    def save(self, writer):
+        writer.u16(CREDIT_SENSOR)
+        writer.u32(self.precision)
+
 class BirthSignal:
     def __init__(self):
         self.scale = 0
@@ -109,34 +172,69 @@ class BirthSignal:
     def load(self, reader):
         self.scale = reader.f32()
         self.threshold = reader.f32()
-        self.variation = reader.f32()
+        self.variation = reader.u32()
 
     def save(self, writer):
+        writer.u16(BIRTH_SIGNAL)
         writer.f32(self.scale)
         writer.f32(self.threshold)
-        writer.f32(self.variation)
+        writer.u32(self.variation)
+
+class BirthCredit:
+    def __init__(self):
+        self.giveaway = 0
+
+    def load(self, reader):
+        self.giveaway = reader.u32()
+
+    def save(self, writer):
+        writer.u16(BIRTH_CREDIT)
+        writer.u32(self.giveaway)
+
+class Spawner:
+    def __init__(self):
+        pass
+
+    def load(self, reader):
+        pass
+
+    def save(self, writer):
+        writer.u16(SPAWNER)
 
 class Control:
     def __init__(self):
-        self.creditsensor = 0
+        self.creditsensor = CreditSensor()
         self.birthsignal = BirthSignal()
-        self.birthgiveaway = 0
+        self.birthcredit = BirthCredit()
+        self.spawner = Spawner()
+        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.spawner ]
         self.values = Values()
         self.threshold = 0
         self.giveaway = 0
 
     def load(self, reader):
-        self.creditsensor = reader.u32()
-        self.birthsignal.load(reader)
-        self.birthgiveaway = reader.u32()
+        self.units = []
+        for i in range( reader.u32() ):
+            utype = reader.u16()
+            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, SPAWNER: Spawner }[utype]()
+            self.units.append(unit)
+            if utype == CREDIT_SENSOR:
+                self.creditsensor = unit
+            elif utype == BIRTH_SIGNAL:
+                self.birthsignal = unit
+            elif utype == BIRTH_CREDIT:
+                self.birthcredit = unit
+            elif utype == SPAWNER:
+                self.spawner = unit
+            unit.load(reader)
         self.values.load(reader)
         self.threshold = reader.u32()
         self.giveaway = reader.u32()
 
     def save(self, writer):
-        writer.u32(self.creditsensor)
-        self.birthsignal.save(writer)
-        writer.u32(self.birthgiveaway)
+        writer.u32( len(self.units) )
+        for u in self.units:
+            u.save(writer)
         self.values.save(writer)
         writer.u32(self.threshold)
         writer.u32(self.giveaway)
