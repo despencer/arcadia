@@ -1,4 +1,4 @@
-use std::io::{Result, Read, Write};
+use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::collections::VecDeque;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
@@ -142,27 +142,101 @@ impl BirthCredit
  }
 }
 
+#[derive(Default)]
+pub struct Spawner
+{
+}
+
+impl Spawner
+{
+ fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
+ fn save_1(&self, _target: &mut dyn Write) -> Result<()> { Ok(()) }
+ pub fn tick(&self, _units: &Units, _values: &mut Values, _body: &mut Body)
+ {
+ }
+}
+
+#[derive(Default)]
+pub enum BluePrint
+{
+ #[default]
+ Empty,
+ FValue { value: f32},
+ UValue { value: u32},
+ Collection { value: Vec<BluePrint> }
+}
+
+impl BluePrint
+{
+ const EMPTY: u8 = 0;
+ const FVALUE: u8 = 1;
+ const UVALUE: u8 = 2;
+ const COLLECTION: u8 = 3;
+
+ pub fn load_1(source: &mut dyn Read) -> Result<Self>
+ {
+  let utype = source.read_u8()?;
+  let bp = match utype
+        {
+        Self::EMPTY => Self::Empty,
+        Self::FVALUE => Self::FValue { value: source.read_f32::<LittleEndian>()? },
+        Self::UVALUE => Self::UValue { value: source.read_u32::<LittleEndian>()? },
+        Self::COLLECTION =>
+              {
+              let mut value : Vec<BluePrint> = Vec::new();
+              let ucount = source.read_u32::<LittleEndian>()? as usize;
+              for _ in 0..ucount
+                 { value.push( BluePrint::load_1(source)? ); }
+              Self::Collection { value: value }
+              },
+        _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
+        };
+
+  Ok(bp)
+ }
+ pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  match self
+    {
+    Self::Empty => target.write_u8(Self::EMPTY)?,
+    Self::FValue {value} =>
+           { target.write_u8(Self::FVALUE)?; target.write_f32::<LittleEndian>(*value)?},
+    Self::UValue {value} =>
+           { target.write_u8(Self::UVALUE)?; target.write_u32::<LittleEndian>(*value)?},
+    Self::Collection {value} =>
+           { target.write_u8(Self::COLLECTION)?;
+             target.write_u32::<LittleEndian>(value.len() as u32)?;
+             for bp in value.iter()
+                { bp.save_1(target)?; } }
+    }
+  Ok( () )
+ }
+}
+
 pub struct Seed
 {
- credits: u32
+ credits: u32,
+ blueprints: BluePrint
 }
 
 impl Seed
 {
  pub fn new(credits: u32) -> Seed
  {
-  Seed { credits: credits }
+  Seed { credits: credits, blueprints: BluePrint::Empty }
  }
 
  pub fn load_1(source: &mut dyn Read) -> Result<Self>
  {
   let credits = source.read_u32::<LittleEndian>()?;
-  Ok( Seed { credits: credits } )
+  let bp = BluePrint::load_1(source)?;
+  Ok( Seed { credits: credits, blueprints:bp } )
  }
 
  pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u32::<LittleEndian>(self.credits)?;
+  self.blueprints.save_1(target)?;
   Ok( () )
  }
 }
@@ -204,6 +278,7 @@ pub struct Units
  creditsensor: CreditSensor,
  birthsignal: BirthSignal,
  birthcredit: BirthCredit,
+ spawner: Spawner
 }
 
 impl Units
@@ -213,6 +288,7 @@ impl Units
   self.creditsensor.tick(self, values, body);
   self.birthsignal.tick(self, values, body);
   self.birthcredit.tick(self, values, body);
+  self.spawner.tick(self, values, body);
  }
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
@@ -220,6 +296,7 @@ impl Units
    self.creditsensor.load_1(source)?;
    self.birthsignal.load_1(source)?;
    self.birthcredit.load_1(source)?;
+   self.spawner.load_1(source)?;
    Ok(())
  }
 
@@ -228,6 +305,7 @@ impl Units
    self.creditsensor.save_1(target)?;
    self.birthsignal.save_1(target)?;
    self.birthcredit.save_1(target)?;
+   self.spawner.save_1(target)?;
    Ok(())
  }
 
