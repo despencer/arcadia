@@ -7,6 +7,7 @@ CREDIT_SENSOR = 1;
 BIRTH_SIGNAL = 2;
 BIRTH_CREDIT = 3;
 CHILD_MAKER = 4;
+SPAWNER = 5;
 
 class Reader:
     def __init__(self, fs):
@@ -204,13 +205,24 @@ class ChildMaker:
     def save(self, writer):
         writer.u16(CHILD_MAKER)
 
+class Spawner:
+    def __init__(self):
+        pass
+
+    def load(self, reader):
+        pass
+
+    def save(self, writer):
+        writer.u16(SPAWNER)
+
 class Control:
     def __init__(self):
         self.creditsensor = CreditSensor()
         self.birthsignal = BirthSignal()
         self.birthcredit = BirthCredit()
         self.childmaker = ChildMaker()
-        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker ]
+        self.spawner = Spawner()
+        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker, self.spawner ]
         self.values = Values()
         self.threshold = 0
         self.giveaway = 0
@@ -219,7 +231,7 @@ class Control:
         self.units = []
         for i in range( reader.u32() ):
             utype = reader.u16()
-            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, CHILD_MAKER: ChildMaker }[utype]()
+            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, CHILD_MAKER: ChildMaker, SPAWNER: Spawner }[utype]()
             self.units.append(unit)
             if utype == CREDIT_SENSOR:
                 self.creditsensor = unit
@@ -229,6 +241,8 @@ class Control:
                 self.birthcredit = unit
             elif utype == CHILD_MAKER:
                 self.child_maker = unit
+            elif utype == SPAWNER:
+                self.spawner = unit
             unit.load(reader)
         self.values.load(reader)
         self.threshold = reader.u32()

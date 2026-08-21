@@ -199,6 +199,29 @@ impl Unit for ChildMaker
 }
 
 #[derive(Default)]
+pub struct Spawner
+{
+}
+
+impl Unit for Spawner
+{
+ fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
+ fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ {
+  target.write_u16::<LittleEndian>(Units::SPAWNER)?;
+  Ok(())
+ }
+ fn tick(&self, units: &Units, values: &mut Values, body: &mut Body)
+ {
+  while values.seeds.len() > 0
+     {
+     let seed = values.birthcredits.pop_front().unwrap();
+     body.birth(&seed);
+     }
+ }
+}
+
+#[derive(Default)]
 pub enum BluePrint
 {
  #[default]
@@ -354,6 +377,7 @@ impl Units
  const BIRTH_SIGNAL :u16 = 2;
  const BIRTH_CREDIT :u16 = 3;
  const CHILD_MAKER :u16 = 4;
+ const SPAWNER :u16 = 5;
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -367,6 +391,7 @@ impl Units
         Self::BIRTH_SIGNAL => Box::new( BirthSignal::default() ),
         Self::BIRTH_CREDIT => Box::new( BirthCredit::default() ),
         Self::CHILD_MAKER => Box::new( ChildMaker::default() ),
+        Self::SPAWNER => Box::new( Spawner::default() ),
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
         };
      unit.load_1(source)?;
@@ -409,17 +434,6 @@ impl Control
  pub fn tick(&mut self, body: &mut Body)
  {
   self.units.tick(&mut self.values, body);
-  if self.threshold.sample() < body.get_credits()
-      { self.birth = true; }
-  if self.birth
-    { self.to_child = Some(self.giveaway.sample()); self.birth = false; }
-  if let Some(giveaway) = self.to_child
-    {
-       let mut startup : Vec<u8> = vec![];
-       self.save_1(&mut startup).unwrap();
-       body.birth(giveaway, startup);
-       self.to_child = None;
-   }
  }
 
  pub fn new(&mut self, startup: Vec<u8>)
