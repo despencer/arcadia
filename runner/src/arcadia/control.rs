@@ -83,6 +83,12 @@ impl Unit for CreditSensor
   let mut rng = rand::thread_rng();
   values.credits = self.selector.sample(&mut rng) * ( body.get_credits() as f32);
  }
+
+ fn blueprints(&self) -> BluePrint
+ {
+  BluePrint::from(self.precision)
+ }
+
 }
 
 pub struct BirthSignal
@@ -127,6 +133,13 @@ impl Unit for BirthSignal
   let value = ( values.credits / self.scale) + self.threshold;
   values.birth = self.selector.sample(&mut rng) < value;
  }
+
+ fn blueprints(&self) -> BluePrint
+ {
+  let bp = vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ];
+  BluePrint::from(bp)
+ }
+
 }
 
 #[derive(Default)]
@@ -154,6 +167,10 @@ impl Unit for BirthCredit
   giveaway = body.take_credits(giveaway);
   if giveaway > 0
      { values.birthcredits.push_back( Seed::new(self.giveaway.sample()) ) }
+ }
+ fn blueprints(&self) -> BluePrint
+ {
+  BluePrint::from(self.giveaway.nominal)
  }
 }
 
@@ -236,6 +253,21 @@ impl BluePrint
     }
   Ok( () )
  }
+}
+
+impl From<u32> for BluePrint
+{
+ fn from(value: u32) -> Self { Self::UValue { value: value } }
+}
+
+impl From<f32> for BluePrint
+{
+ fn from(value: f32) -> Self { Self::FValue { value: value } }
+}
+
+impl From<Vec<BluePrint>> for BluePrint
+{
+ fn from(value: Vec<BluePrint>) -> Self { Self::Collection { value: value } }
 }
 
 pub struct Seed
