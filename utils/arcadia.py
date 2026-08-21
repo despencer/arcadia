@@ -6,7 +6,7 @@ UNIVERSE_VERSION=1
 CREDIT_SENSOR = 1;
 BIRTH_SIGNAL = 2;
 BIRTH_CREDIT = 3;
-SPAWNER = 4;
+CHILD_MAKER = 4;
 
 class Reader:
     def __init__(self, fs):
@@ -141,16 +141,19 @@ class Values:
         self.credits = 0.0
         self.birth = False
         self.birthcredits = []
+        self.seeds = []
 
     def load(self, reader):
         self.credits = reader.f32()
         self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
+        reader.array(self.seeds, Seed.load)
 
     def save(self, writer):
         writer.f32(self.credits)
         writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)
+        writer.array(self.seeds, Seed.save)
 
 class CreditSensor:
     def __init__(self):
@@ -191,7 +194,7 @@ class BirthCredit:
         writer.u16(BIRTH_CREDIT)
         writer.u32(self.giveaway)
 
-class Spawner:
+class ChildMaker:
     def __init__(self):
         pass
 
@@ -199,15 +202,15 @@ class Spawner:
         pass
 
     def save(self, writer):
-        writer.u16(SPAWNER)
+        writer.u16(CHILD_MAKER)
 
 class Control:
     def __init__(self):
         self.creditsensor = CreditSensor()
         self.birthsignal = BirthSignal()
         self.birthcredit = BirthCredit()
-        self.spawner = Spawner()
-        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.spawner ]
+        self.childmaker = ChildMaker()
+        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker ]
         self.values = Values()
         self.threshold = 0
         self.giveaway = 0
@@ -216,7 +219,7 @@ class Control:
         self.units = []
         for i in range( reader.u32() ):
             utype = reader.u16()
-            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, SPAWNER: Spawner }[utype]()
+            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, CHILD_MAKER: ChildMaker }[utype]()
             self.units.append(unit)
             if utype == CREDIT_SENSOR:
                 self.creditsensor = unit
@@ -224,8 +227,8 @@ class Control:
                 self.birthsignal = unit
             elif utype == BIRTH_CREDIT:
                 self.birthcredit = unit
-            elif utype == SPAWNER:
-                self.spawner = unit
+            elif utype == CHILD_MAKER:
+                self.child_maker = unit
             unit.load(reader)
         self.values.load(reader)
         self.threshold = reader.u32()

@@ -41,6 +41,11 @@ trait Unit
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>;
  fn save_1(&self, target: &mut dyn Write) -> Result<()>;
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body);
+ fn blueprints(&self) -> BluePrint
+ {
+  BluePrint::default()
+ }
+
 }
 
 pub struct CreditSensor
@@ -153,20 +158,26 @@ impl Unit for BirthCredit
 }
 
 #[derive(Default)]
-pub struct Spawner
+pub struct ChildMaker
 {
 }
 
-impl Unit for Spawner
+impl Unit for ChildMaker
 {
  fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
  fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
-  target.write_u16::<LittleEndian>(Units::SPAWNER)?;
+  target.write_u16::<LittleEndian>(Units::CHILD_MAKER)?;
   Ok(())
  }
- fn tick(&self, _units: &Units, _values: &mut Values, _body: &mut Body)
+ fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
  {
+  while values.birthcredits.len() > 0
+     {
+     let mut seed = values.birthcredits.pop_front().unwrap();
+     seed.blueprints = units.blueprints();
+     values.seeds.push_back(seed);
+     }
  }
 }
 
@@ -260,7 +271,8 @@ pub struct Values
 {
  credits: f32,
  birth: bool,
- birthcredits: VecDeque<Seed>
+ birthcredits: VecDeque<Seed>,
+ seeds: VecDeque<Seed>
 }
 
 impl Values
@@ -272,6 +284,9 @@ impl Values
   let countbc = source.read_u32::<LittleEndian>()? as usize;
   for _ in 0..countbc
     { self.birthcredits.push_back( Seed::load_1(source)? ); }
+  let counts = source.read_u32::<LittleEndian>()? as usize;
+  for _ in 0..counts
+    { self.seeds.push_back( Seed::load_1(source)? ); }
   Ok( () )
  }
 
@@ -281,6 +296,9 @@ impl Values
   target.write_u8(self.birth as u8)?;
   target.write_u32::<LittleEndian>(self.birthcredits.len() as u32)?;
   for seed in self.birthcredits.iter()
+      { seed.save_1(target)?; }
+  target.write_u32::<LittleEndian>(self.seeds.len() as u32)?;
+  for seed in self.seeds.iter()
       { seed.save_1(target)?; }
   Ok(())
  }
@@ -303,7 +321,7 @@ impl Units
  const CREDIT_SENSOR :u16 = 1;
  const BIRTH_SIGNAL :u16 = 2;
  const BIRTH_CREDIT :u16 = 3;
- const SPAWNER :u16 = 4;
+ const CHILD_MAKER :u16 = 4;
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -316,7 +334,7 @@ impl Units
         Self::CREDIT_SENSOR => Box::new( CreditSensor::default() ),
         Self::BIRTH_SIGNAL => Box::new( BirthSignal::default() ),
         Self::BIRTH_CREDIT => Box::new( BirthCredit::default() ),
-        Self::SPAWNER => Box::new( Spawner::default() ),
+        Self::CHILD_MAKER => Box::new( ChildMaker::default() ),
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
         };
      unit.load_1(source)?;
@@ -331,6 +349,14 @@ impl Units
   for unit in self.units.iter()
       { unit.save_1(target)?; }
    Ok(())
+ }
+
+ fn blueprints(&self) -> BluePrint
+ {
+  let mut value : Vec<BluePrint> = Vec::new();
+  for unit in self.units.iter()
+     { value.push( unit.blueprints() ); }
+  BluePrint::Collection { value: value }
  }
 
 }
