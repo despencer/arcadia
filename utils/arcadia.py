@@ -3,11 +3,12 @@ import struct
 msb='little'
 UNIVERSE_VERSION=1
 
-CREDIT_SENSOR = 1;
-BIRTH_SIGNAL = 2;
-BIRTH_CREDIT = 3;
-CHILD_MAKER = 4;
-SPAWNER = 5;
+COMPOUND = 1
+CREDIT_SENSOR = 2;
+BIRTH_SIGNAL = 3;
+BIRTH_CREDIT = 4;
+CHILD_MAKER = 5;
+SPAWNER = 6;
 
 class Reader:
     def __init__(self, fs):
@@ -75,25 +76,24 @@ class Writer:
             writer(item, self)
 
 class BluePrint:
-    EMPTY = 0
     FVALUE = 1
     UVALUE = 2
     COLLECTION = 3
 
     def __init__(self):
+        self.unit = 0
         self.value = None
 
     @classmethod
     def load(cls, reader):
         bp = cls()
         btype = reader.u8()
-        if btype == cls.EMPTY:
-            pass
-        elif btype == cls.FVALUE:
+        if btype == cls.FVALUE:
             bp.value = reader.f32()
         elif btype == cls.UVALUE:
             bp.value = reader.u32()
         elif btype == cls.COLLECTION:
+            bp.unit = reader.u16()
             bp.value = []
             for i in range(reader.u32()):
                 bp.value.append( cls.load(reader) )
@@ -102,9 +102,7 @@ class BluePrint:
         return bp
 
     def save(self, writer):
-        if self.value == None:
-            writer.u8(cls.EMPTY)
-        elif isinstance(self.value, float):
+        if isinstance(self.value, float):
             writer.u8(cls.FVALUE)
             writer.f32(self.value)
         elif isinstance(self.value, int):
@@ -112,6 +110,7 @@ class BluePrint:
             writer.u32(self.value)
         elif isinstance(self.value, list):
             writer.u8(cls.COLLECTION)
+            writer.u16(self.unit)
             writer.u32( len(self.value) )
             for i in self.value:
                 i.save(writer)
@@ -224,8 +223,6 @@ class Control:
         self.spawner = Spawner()
         self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker, self.spawner ]
         self.values = Values()
-        self.threshold = 0
-        self.giveaway = 0
 
     def load(self, reader):
         self.units = []
@@ -245,16 +242,12 @@ class Control:
                 self.spawner = unit
             unit.load(reader)
         self.values.load(reader)
-        self.threshold = reader.u32()
-        self.giveaway = reader.u32()
 
     def save(self, writer):
         writer.u32( len(self.units) )
         for u in self.units:
             u.save(writer)
         self.values.save(writer)
-        writer.u32(self.threshold)
-        writer.u32(self.giveaway)
 
 class Actor:
     def __init__(self):

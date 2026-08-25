@@ -45,7 +45,6 @@ trait Unit
  {
   BluePrint::default()
  }
-
 }
 
 pub struct CreditSensor
@@ -86,9 +85,19 @@ impl Unit for CreditSensor
 
  fn blueprints(&self) -> BluePrint
  {
-  BluePrint::from(self.precision)
+  BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.precision) ])
  }
+}
 
+impl CreditSensor
+{
+ fn new(bp: &BluePrint) -> Result<Self>
+ {
+  let mut cr = Self::default();
+  cr.precision = bp.get_u32(0)?;
+  cr.selector = Normal::new(1.0, (cr.precision as f32)/1000.0).unwrap();
+  Ok( cr )
+ }
 }
 
 pub struct BirthSignal
@@ -136,10 +145,21 @@ impl Unit for BirthSignal
 
  fn blueprints(&self) -> BluePrint
  {
-  let bp = vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ];
-  BluePrint::from(bp)
+  BluePrint::new(Units::BIRTH_SIGNAL, vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ] )
  }
+}
 
+impl BirthSignal
+{
+ fn new(bp: &BluePrint) -> Result<Self>
+ {
+  let mut bs = Self::default();
+  bs.scale = bp.get_f32(0)?;
+  bs.threshold = bp.get_f32(1)?;
+  bs.variation = bp.get_u32(2)?;
+  bs.selector = Normal::new(0.0, (bs.variation as f32)/1000.0).unwrap();
+  Ok( bs )
+ }
 }
 
 #[derive(Default)]
@@ -166,11 +186,21 @@ impl Unit for BirthCredit
   let mut giveaway = self.giveaway.sample();
   giveaway = body.take_credits(giveaway);
   if giveaway > 0
-     { values.birthcredits.push_back( Seed::new(self.giveaway.sample()) ) }
+     { values.birthcredits.push_back( Seed::new(giveaway) ) }
  }
  fn blueprints(&self) -> BluePrint
  {
-  BluePrint::from(self.giveaway.nominal)
+  BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
+ }
+}
+
+impl BirthCredit
+{
+ fn new(bp: &BluePrint) -> Result<Self>
+ {
+  let mut bc = Self::default();
+  bc.giveaway.set( bp.get_u32(0)? );
+  Ok( bc )
  }
 }
 
@@ -196,6 +226,18 @@ impl Unit for ChildMaker
      values.seeds.push_back(seed);
      }
  }
+ fn blueprints(&self) -> BluePrint
+ {
+  BluePrint::new(Units::CHILD_MAKER, vec![ ])
+ }
+}
+
+impl ChildMaker
+{
+ fn new(_bp: &BluePrint) -> Result<Self>
+ {
+  Ok( Self::default() )
+ }
 }
 
 #[derive(Default)]
@@ -211,29 +253,43 @@ impl Unit for Spawner
   target.write_u16::<LittleEndian>(Units::SPAWNER)?;
   Ok(())
  }
- fn tick(&self, units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
   while values.seeds.len() > 0
      {
-     let seed = values.birthcredits.pop_front().unwrap();
-     body.birth(&seed);
+     let seed = values.seeds.pop_front().unwrap();
+     body.birth(seed);
      }
+ }
+ fn blueprints(&self) -> BluePrint
+ {
+  BluePrint::new(Units::SPAWNER, vec![ ])
  }
 }
 
-#[derive(Default)]
+impl Spawner
+{
+ fn new(_bp: &BluePrint) -> Result<Self>
+ {
+  Ok( Self::default() )
+ }
+}
+
 pub enum BluePrint
 {
- #[default]
- Empty,
  FValue { value: f32},
  UValue { value: u32},
- Collection { value: Vec<BluePrint> }
+ Collection { unit: u16, value: Vec<BluePrint> }
+}
+
+impl Default for BluePrint
+{
+ fn default() -> Self
+   { Self::Collection { unit: Units::COMPOUND, value: vec![] } }
 }
 
 impl BluePrint
 {
- const EMPTY: u8 = 0;
  const FVALUE: u8 = 1;
  const UVALUE: u8 = 2;
  const COLLECTION: u8 = 3;
@@ -243,16 +299,16 @@ impl BluePrint
   let utype = source.read_u8()?;
   let bp = match utype
         {
-        Self::EMPTY => Self::Empty,
         Self::FVALUE => Self::FValue { value: source.read_f32::<LittleEndian>()? },
         Self::UVALUE => Self::UValue { value: source.read_u32::<LittleEndian>()? },
         Self::COLLECTION =>
               {
+              let unit = source.read_u16::<LittleEndian>()?;
               let mut value : Vec<BluePrint> = Vec::new();
               let ucount = source.read_u32::<LittleEndian>()? as usize;
               for _ in 0..ucount
                  { value.push( BluePrint::load_1(source)? ); }
-              Self::Collection { value: value }
+              Self::Collection { unit: unit, value: value }
               },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
         };
@@ -263,13 +319,13 @@ impl BluePrint
  {
   match self
     {
-    Self::Empty => target.write_u8(Self::EMPTY)?,
     Self::FValue {value} =>
-           { target.write_u8(Self::FVALUE)?; target.write_f32::<LittleEndian>(*value)?},
+           { target.write_u8(Self::FVALUE)?; target.write_f32::<LittleEndian>(*value)? },
     Self::UValue {value} =>
-           { target.write_u8(Self::UVALUE)?; target.write_u32::<LittleEndian>(*value)?},
-    Self::Collection {value} =>
+           { target.write_u8(Self::UVALUE)?; target.write_u32::<LittleEndian>(*value)? },
+    Self::Collection {unit, value} =>
            { target.write_u8(Self::COLLECTION)?;
+             target.write_u16::<LittleEndian>(*unit)?;
              target.write_u32::<LittleEndian>(value.len() as u32)?;
              for bp in value.iter()
                 { bp.save_1(target)?; } }
@@ -288,22 +344,61 @@ impl From<f32> for BluePrint
  fn from(value: f32) -> Self { Self::FValue { value: value } }
 }
 
-impl From<Vec<BluePrint>> for BluePrint
+impl BluePrint
 {
- fn from(value: Vec<BluePrint>) -> Self { Self::Collection { value: value } }
+ fn new(unit: u16, value: Vec<BluePrint>) -> Self { Self::Collection { unit:unit, value: value } }
+
+ pub fn get_collection(&self) -> Result<&[BluePrint]>
+ {
+  match self
+     {
+     Self::Collection {value, ..} => Ok(&value),
+     _ => Err(Error::new(ErrorKind::InvalidData, "Collection required"))
+     }
+ }
+
+ pub fn get_unit(&self) -> Result<u16>
+ {
+  match self
+     {
+     Self::Collection {unit, ..} => Ok(*unit),
+     _ => Err(Error::new(ErrorKind::InvalidData, "Collection required"))
+     }
+ }
+
+ pub fn get_f32(&self, index: usize) -> Result<f32>
+ {
+  let item = &(self.get_collection()?)[index];
+  match item
+     {
+     BluePrint::FValue { value } => Ok( *value ),
+     _ => Err(Error::new(ErrorKind::InvalidData, "F32 required"))
+     }
+ }
+
+ pub fn get_u32(&self, index: usize) -> Result<u32>
+ {
+  let item = &(self.get_collection()?)[index];
+  match item
+     {
+     BluePrint::UValue { value } => Ok( *value ),
+     _ => Err(Error::new(ErrorKind::InvalidData, "U32 required"))
+     }
+ }
+
 }
 
 pub struct Seed
 {
- credits: u32,
- blueprints: BluePrint
+ pub credits: u32,
+ pub blueprints: BluePrint
 }
 
 impl Seed
 {
  pub fn new(credits: u32) -> Seed
  {
-  Seed { credits: credits, blueprints: BluePrint::Empty }
+  Seed { credits: credits, blueprints: BluePrint::default() }
  }
 
  pub fn load_1(source: &mut dyn Read) -> Result<Self>
@@ -319,6 +414,7 @@ impl Seed
   self.blueprints.save_1(target)?;
   Ok( () )
  }
+
 }
 
 #[derive(Default)]
@@ -373,11 +469,12 @@ impl Units
      { u.tick(self, values, body); }
  }
 
- const CREDIT_SENSOR :u16 = 1;
- const BIRTH_SIGNAL :u16 = 2;
- const BIRTH_CREDIT :u16 = 3;
- const CHILD_MAKER :u16 = 4;
- const SPAWNER :u16 = 5;
+ const COMPOUND :u16 = 1;
+ const CREDIT_SENSOR :u16 = 2;
+ const BIRTH_SIGNAL :u16 = 3;
+ const BIRTH_CREDIT :u16 = 4;
+ const CHILD_MAKER :u16 = 5;
+ const SPAWNER :u16 = 6;
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
@@ -400,6 +497,59 @@ impl Units
    Ok(())
  }
 
+ pub fn new(&mut self, bp: &BluePrint) -> Result<()>
+ {
+  for ubp in bp.get_collection()?
+      {
+      let aunit : Box<dyn Unit> = match ubp.get_unit()?
+           {
+           Self::CREDIT_SENSOR => Box::new( CreditSensor::new(ubp)? ),
+           Self::BIRTH_SIGNAL => Box::new( BirthSignal::new(ubp)? ),
+           Self::BIRTH_CREDIT => Box::new( BirthCredit::new(ubp)? ),
+           Self::CHILD_MAKER => Box::new( ChildMaker::new(ubp)? ),
+           Self::SPAWNER => Box::new( Spawner::new(ubp)? ),
+           _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
+           };
+      self.units.push(aunit);
+      }
+
+/*  match bp
+    {
+    BluePrint::Collection {unit, value} => 
+      {
+      match *unit
+         {
+         Self::COMPOUND =>
+             {
+             for ubp in value.iter()
+                 {
+                 match ubp
+                   {
+                   BluePrint::Collection {unit, value} => 
+                       {
+                       let aunit : Box<dyn Unit> = match *unit
+                              {
+                              Self::CREDIT_SENSOR => Box::new( CreditSensor::new(&value)? ),
+                              Self::BIRTH_SIGNAL => Box::new( BirthSignal::new(&value)? ),
+                              Self::BIRTH_CREDIT => Box::new( BirthCredit::new(&value)? ),
+                              Self::CHILD_MAKER => Box::new( ChildMaker::new(&value)? ),
+                              Self::SPAWNER => Box::new( Spawner::new(&value)? ),
+                              _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
+                              };
+                       self.units.push(aunit);
+                       },
+                     _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid blueprint"))
+                    }
+                 }
+             },
+             _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid blueprint for compound"))
+          }
+      },
+      _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown blueprint"))
+    }*/
+  Ok(())
+ }
+
  pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u32::<LittleEndian>(self.units.len() as u32)?;
@@ -413,7 +563,7 @@ impl Units
   let mut value : Vec<BluePrint> = Vec::new();
   for unit in self.units.iter()
      { value.push( unit.blueprints() ); }
-  BluePrint::Collection { value: value }
+  BluePrint::Collection { unit: Self::COMPOUND, value: value }
  }
 
 }
@@ -423,10 +573,6 @@ pub struct Control
 {
  units: Units,
  values: Values,
- threshold: Sampler,
- giveaway: Sampler,
- birth: bool,
- to_child: Option<u32>
 }
 
 impl Control
@@ -436,19 +582,15 @@ impl Control
   self.units.tick(&mut self.values, body);
  }
 
- pub fn new(&mut self, startup: Vec<u8>)
+ pub fn new(&mut self, bp: &BluePrint)
  {
-  let mut reader = &startup[..];
-  self.load_1(&mut reader).unwrap();
+  self.units.new(bp).unwrap();
  }
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
    self.units.load_1(source)?;
    self.values.load_1(source)?;
-   self.threshold.set( source.read_u32::<LittleEndian>()? );
-   self.giveaway.set( source.read_u32::<LittleEndian>()? );
-   log::debug!("Control loaded, threshold {}", self.threshold.nominal);
    Ok(())
  }
 
@@ -456,8 +598,6 @@ impl Control
  {
    self.units.save_1(target)?;
    self.values.save_1(target)?;
-   target.write_u32::<LittleEndian>(self.threshold.nominal)?;
-   target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
    Ok(())
  }
 }

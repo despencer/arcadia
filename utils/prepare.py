@@ -16,8 +16,6 @@ def make():
     actor.control.birthcredit.giveaway = 400
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
-    actor.control.threshold = 750
-    actor.control.giveaway = 400
     world.actors.append(actor)
     return uni
 

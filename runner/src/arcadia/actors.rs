@@ -1,7 +1,7 @@
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::dispatcher::Dispatcher;
-use crate::arcadia::control::Control;
+use crate::arcadia::control::{Control, Seed};
 
 #[derive(Default)]
 pub enum ActorLifecycle
@@ -9,7 +9,7 @@ pub enum ActorLifecycle
  #[default]
  Empty,
  Death { id: u64 },
- Make { parent: u64, credits: u32, home: u64, startup: Vec<u8>  }
+ Make { parent: u64, home: u64, seed: Seed  }
 }
 
 #[derive(Default)]
@@ -17,7 +17,7 @@ pub enum ActorInside
 {
  #[default]
  Empty,
- Make { credits: u32, startup: Vec<u8> }
+ Make { seed: Seed }
 }
 
 #[derive(Default)]
@@ -44,13 +44,14 @@ impl Body
   ret
  }
 
- pub fn birth(&mut self, credits: u32, startup: Vec<u8>)
+ pub fn birth(&mut self, seed: Seed)
  {
-  log::debug!("Body birth request {} have {}", credits, self.credits);
-  if credits < self.credits
+  log::debug!("Body birth request {} have {}", seed.credits, self.credits);
+  if seed.credits < self.credits
    {
-   self.credits -= credits;
-   self.inside.put( ActorInside::Make { credits: credits, startup: startup } );
+   self.credits -= seed.credits;
+   self.reserve -= seed.credits;
+   self.inside.put( ActorInside::Make { seed: seed } );
    }
  }
 
@@ -60,7 +61,7 @@ impl Body
      {
      match self.inside.get()
        {
-         ActorInside::Make {credits, startup} => outside.put( ActorLifecycle::Make { parent: self.id, credits: credits, home: self.home, startup:startup } ),
+         ActorInside::Make {seed} => outside.put( ActorLifecycle::Make { parent: self.id, home: self.home, seed:seed } ),
          _ => {}
        }
      }
@@ -99,13 +100,13 @@ impl Actor
   self.body.credits = self.body.credits.saturating_add(amount);
  }
 
- pub fn new(id: u64, credits: u32, home: u64,  startup: Vec<u8>) -> Actor
+ pub fn new(id: u64, home: u64,  seed: &Seed) -> Actor
  {
   let mut actor = Actor::default();
   actor.body.id = id;
   actor.body.home = home;
-  actor.body.credits = credits;
-  actor.control.new(startup);
+  actor.body.credits = seed.credits;
+  actor.control.new(&seed.blueprints);
   actor
  }
 

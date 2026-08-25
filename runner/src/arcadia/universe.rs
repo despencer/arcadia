@@ -9,6 +9,7 @@ use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::dispatcher::Dispatcher;
+use crate::arcadia::control::Seed;
 
 #[derive(Default)]
 pub struct Storage
@@ -112,7 +113,7 @@ impl Universe
      match self.dispatcher.get()
        {
          ActorLifecycle::Death {id} => self.drop_actor(id),
-         ActorLifecycle::Make {parent, credits, home, startup} => self.make_actor(parent, credits, home, startup),
+         ActorLifecycle::Make {parent, home, seed} => self.make_actor(parent, home, seed),
          _ => {}
        }
      }
@@ -134,10 +135,10 @@ impl Universe
   self.lastseqid
  }
 
- pub fn make_actor(&mut self, parent: u64, credits: u32, home: u64, startup: Vec<u8>)
+ pub fn make_actor(&mut self, parent: u64, home: u64, seed: Seed)
  {
-  log::info!("New actor request from {} with {} credits", parent, credits);
-  let actor = Actor::new(self.gen_id(), credits, home, startup); let aid = actor.get_id();
+  log::info!("New actor request from {} with {} credits", parent, seed.credits);
+  let actor = Actor::new(self.gen_id(), home, &seed); let aid = actor.get_id();
   let iactor = self.storage.actors.insert(actor);
   self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
   let homeworld =  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap();
