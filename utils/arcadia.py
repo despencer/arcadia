@@ -1,4 +1,5 @@
 import struct
+import arhistory
 
 msb='little'
 UNIVERSE_VERSION=1
@@ -354,3 +355,6 @@ class Universe:
 
 def load(fs):
     return Universe.load(fs)
+
+def load_history(fs):
+    return arhistory.History.load(fs)

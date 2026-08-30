@@ -4,12 +4,14 @@ use std::time::Instant;
 use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
+use std::path::Path;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::dispatcher::Dispatcher;
 use crate::arcadia::control::Seed;
+use crate::arcadia::telemetry;
 
 #[derive(Default)]
 pub struct Storage
@@ -20,7 +22,6 @@ pub struct Storage
  pub wlookup: HashMap<u64, DepotIndex>
 }
 
-#[derive(Default)]
 pub struct Universe
 {
  timetick: u64,
@@ -28,7 +29,8 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- dispatcher: Dispatcher<ActorLifecycle>
+ dispatcher: Dispatcher<ActorLifecycle>,
+ telemetry: telemetry::Writer
 }
 
 const UNIVERSE_VERSION:u16 = 1;
@@ -143,6 +145,7 @@ impl Universe
   self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
   let homeworld =  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap();
   homeworld.add_actor(iactor);
+  self.telemetry.write(self.timetick, telemetry::Message::Birth { id: aid, parent, home } ).unwrap();
  }
 
  pub fn drop_actor(&mut self, id: u64)
@@ -153,11 +156,14 @@ impl Universe
   self.realm.drop_actor(&mut self.storage.worlds, iactor);
   self.storage.alookup.remove(&id);
   self.storage.actors.remove(iactor);
+  self.telemetry.write(self.timetick, telemetry::Message::Death { id } ).unwrap();
  }
 
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
-   let mut uni = Universe::default();
+   let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
+                            realm: Realm::default(), dispatcher: Dispatcher::<ActorLifecycle>::default(),
+                            telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();
 

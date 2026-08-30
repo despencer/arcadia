@@ -4,3 +4,4 @@ pub mod actors;
 pub mod places;
 pub mod dispatcher;
 pub mod control;
+pub mod telemetry;
