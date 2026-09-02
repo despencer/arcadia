@@ -36,6 +36,45 @@ impl Sampler
  }
 }
 
+pub struct Variator
+{
+ precision: u32,
+ selector: Normal<f32>
+}
+
+impl Default for Variator
+{
+ fn default() -> Self
+ {
+  Variator { precision: 0, selector: Normal::new(0.0, 1.0).unwrap() }
+ }
+}
+
+impl Variator
+{
+ pub fn set(&mut self, value: u32)
+ {
+  self.precision = value;
+  self.selector = Normal::new(1.0, (self.precision as f32)/1000.0).unwrap();
+ }
+
+ pub fn variate(&self, value: f32) -> f32
+ {
+  let mut rng = rand::thread_rng();
+  self.selector.sample(&mut rng) * value
+ }
+
+ pub fn variate_u32(&self, value: u32) -> u32
+ {
+  let r = self.variate(value as f32);
+  if r <= 0.0
+     { return 0; }
+  if r >= 2_000_000_000.0
+     { return 2_000_000_000; }
+  r as u32
+ }
+}
+
 trait Unit
 {
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>;
@@ -47,45 +86,35 @@ trait Unit
  }
 }
 
+#[derive(Default)]
 pub struct CreditSensor
 {
- precision: u32,
- selector: Normal<f32>
-}
-
-impl Default for CreditSensor
-{
- fn default() -> Self
- {
-  CreditSensor { precision: 0, selector: Normal::new(0.0, 1.0).unwrap() }
- }
+ variator: Variator
 }
 
 impl Unit for CreditSensor
 {
  fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
-  self.precision = source.read_u32::<LittleEndian>()?;
-  self.selector = Normal::new(1.0, (self.precision as f32)/1000.0).unwrap();
+  self.variator.set( source.read_u32::<LittleEndian>()? );
   Ok( () )
  }
 
  fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::CREDIT_SENSOR)?;
-  target.write_u32::<LittleEndian>(self.precision)?;
+  target.write_u32::<LittleEndian>(self.variator.precision)?;
   Ok(())
  }
 
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
-  let mut rng = rand::thread_rng();
-  values.credits = self.selector.sample(&mut rng) * ( body.get_credits() as f32);
+  values.credits = self.variator.variate(body.get_credits() as f32);
  }
 
  fn blueprints(&self) -> BluePrint
  {
-  BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.precision) ])
+  BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.variator.precision) ])
  }
 }
 
@@ -94,8 +123,7 @@ impl CreditSensor
  fn new(bp: &BluePrint) -> Result<Self>
  {
   let mut cr = Self::default();
-  cr.precision = bp.get_u32(0)?;
-  cr.selector = Normal::new(1.0, (cr.precision as f32)/1000.0).unwrap();
+  cr.variator.set( bp.get_u32(0)? );
   Ok( cr )
  }
 }
