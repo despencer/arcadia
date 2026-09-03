@@ -5,3 +5,4 @@ pub mod places;
 pub mod dispatcher;
 pub mod control;
 pub mod telemetry;
+pub mod storage;

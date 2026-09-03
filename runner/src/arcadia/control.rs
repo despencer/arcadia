@@ -3,6 +3,7 @@ use std::collections::{VecDeque, HashMap};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
+use crate::arcadia::storage::Reader;
 
 pub struct Sampler
 {
@@ -77,7 +78,7 @@ impl Variator
 
 trait Unit
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>;
+ fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>;
  fn save(&self, target: &mut dyn Write) -> Result<()>;
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body);
  fn blueprints(&self) -> BluePrint;
@@ -92,11 +93,11 @@ pub struct CreditSensor
 
 impl Unit for CreditSensor
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>
  {
-  if source.read_u8()? != 1
+  if version != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown CreditSensor version")); }
-  self.variator.set( source.read_u32::<LittleEndian>()? );
+  self.variator.set( reader.u32()? );
   Ok( () )
  }
 
@@ -143,13 +144,13 @@ impl Default for BirthSignal
 
 impl Unit for BirthSignal
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>
  {
-  if source.read_u8()? != 1
+  if version != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown BirthSignal version")); }
-  self.scale = source.read_f32::<LittleEndian>()?;
-  self.threshold = source.read_f32::<LittleEndian>()?;
-  self.variation = source.read_u32::<LittleEndian>()?;
+  self.scale = reader.f32()?;
+  self.threshold = reader.f32()?;
+  self.variation = reader.u32()?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
   Ok( () )
  }
@@ -193,11 +194,11 @@ pub struct BirthCredit
 
 impl Unit for BirthCredit
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>
  {
-  if source.read_u8()? != 1
+  if version != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown BirthCredit version")); }
-  self.giveaway.set( source.read_u32::<LittleEndian>()? );
+  self.giveaway.set( reader.u32()? );
   Ok(())
  }
  fn save(&self, target: &mut dyn Write) -> Result<()>
@@ -233,11 +234,11 @@ pub struct ChildMaker
 
 impl Unit for ChildMaker
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>
  {
-  if source.read_u8()? != 1
+  if version != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown ChildMaker version")); }
-  self.variator.set( source.read_u32::<LittleEndian>()? );
+  self.variator.set( reader.u32()? );
   Ok(()) 
  }
  fn save(&self, target: &mut dyn Write) -> Result<()>
@@ -276,9 +277,9 @@ pub struct Spawner
 
 impl Unit for Spawner
 {
- fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, version: u8, _reader: &mut Reader) -> Result<()>
  {
-  if source.read_u8()? != 1
+  if version != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown Spawner version")); }
   Ok(()) 
  }
@@ -534,14 +535,12 @@ impl Units
  const CHILD_MAKER :u16 = 5;
  const SPAWNER :u16 = 6;
 
- pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ pub fn load_1(&mut self, reader: &mut Reader) -> Result<()>
  {
-  let countu = source.read_u32::<LittleEndian>()? as usize;
-  for _ in 0..countu
+  for _ in 0..reader.count()?
      {
-     let utype = source.read_u16::<LittleEndian>()?;
-     let mut unit = self.factory.get(&utype).expect("Unknown unit")();
-     unit.load(source)?;
+     let mut unit = self.factory.get(&reader.u16()?).expect("Unknown unit")();
+     unit.load(reader.u8()?, reader)?;
      self.units.push(unit);
      }
    Ok(())
@@ -553,15 +552,6 @@ impl Units
       {
       let mut aunit = self.factory.get(&ubp.get_unit()?).expect("Unknown unit")();
       aunit.make(ubp)?;
-/*      let aunit : Box<dyn Unit> = match ubp.get_unit()?
-           {
-           Self::CREDIT_SENSOR => Box::new( CreditSensor::new(ubp)? ),
-           Self::BIRTH_SIGNAL => Box::new( BirthSignal::new(ubp)? ),
-           Self::BIRTH_CREDIT => Box::new( BirthCredit::new(ubp)? ),
-           Self::CHILD_MAKER => Box::new( ChildMaker::new(ubp)? ),
-           Self::SPAWNER => Box::new( Spawner::new(ubp)? ),
-           _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
-           };*/
       self.units.push(aunit);
       }
 
@@ -607,7 +597,8 @@ impl Control
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
-   self.units.load_1(source)?;
+   let mut reader = Reader::new(source);
+   self.units.load_1(&mut reader)?;
    self.values.load_1(source)?;
    Ok(())
  }
