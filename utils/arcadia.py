@@ -206,7 +206,7 @@ class BirthCredit:
 
 class ChildMaker:
     def __init__(self):
-        self.variance = 10
+        self.variance = 0
 
     def load(self, reader):
         if reader.u8() != 1:
@@ -253,7 +253,7 @@ class Control:
             elif utype == BIRTH_CREDIT:
                 self.birthcredit = unit
             elif utype == CHILD_MAKER:
-                self.child_maker = unit
+                self.childmaker = unit
             elif utype == SPAWNER:
                 self.spawner = unit
             unit.load(reader)

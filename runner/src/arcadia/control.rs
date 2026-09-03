@@ -80,10 +80,8 @@ trait Unit
  fn load(&mut self, source: &mut dyn Read) -> Result<()>;
  fn save(&self, target: &mut dyn Write) -> Result<()>;
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body);
- fn blueprints(&self) -> BluePrint
- {
-  BluePrint::default()
- }
+ fn blueprints(&self) -> BluePrint;
+ fn make(&mut self, _bp: &BluePrint) -> Result<()>;
 }
 
 #[derive(Default)]
@@ -119,15 +117,11 @@ impl Unit for CreditSensor
  {
   BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.variator.precision) ])
  }
-}
 
-impl CreditSensor
-{
- fn new(bp: &BluePrint) -> Result<Self>
+ fn make(&mut self, bp: &BluePrint) -> Result<()>
  {
-  let mut cr = Self::default();
-  cr.variator.set( bp.get_u32(0)? );
-  Ok( cr )
+  self.variator.set( bp.get_u32(0)? );
+  Ok(())
  }
 }
 
@@ -181,18 +175,13 @@ impl Unit for BirthSignal
  {
   BluePrint::new(Units::BIRTH_SIGNAL, vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ] )
  }
-}
 
-impl BirthSignal
-{
- fn new(bp: &BluePrint) -> Result<Self>
+ fn make(&mut self, bp: &BluePrint) -> Result<()>
  {
-  let mut bs = Self::default();
-  bs.scale = bp.get_f32(0)?;
-  bs.threshold = bp.get_f32(1)?;
-  bs.variation = bp.get_u32(2)?;
-  bs.selector = Normal::new(0.0, (bs.variation as f32)/1000.0).unwrap();
-  Ok( bs )
+  self.threshold = bp.get_f32(1)?;
+  self.variation = bp.get_u32(2)?;
+  self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
+  Ok( () )
  }
 }
 
@@ -229,15 +218,10 @@ impl Unit for BirthCredit
  {
   BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
  }
-}
-
-impl BirthCredit
-{
- fn new(bp: &BluePrint) -> Result<Self>
+ fn make(&mut self, bp: &BluePrint) -> Result<()>
  {
-  let mut bc = Self::default();
-  bc.giveaway.set( bp.get_u32(0)? );
-  Ok( bc )
+  self.giveaway.set( bp.get_u32(0)? );
+  Ok( () )
  }
 }
 
@@ -275,16 +259,14 @@ impl Unit for ChildMaker
  }
  fn blueprints(&self) -> BluePrint
  {
-  BluePrint::new(Units::CHILD_MAKER, vec![ ])
+  BluePrint::new(Units::CHILD_MAKER, vec![ BluePrint::from(self.variator.precision) ])
  }
-}
-
-impl ChildMaker
-{
- fn new(_bp: &BluePrint) -> Result<Self>
+ fn make(&mut self, bp: &BluePrint) -> Result<()>
  {
-  Ok( Self::default() )
+  self.variator.set( bp.get_u32(0)? );
+  Ok( () )
  }
+
 }
 
 #[derive(Default)]
@@ -318,13 +300,9 @@ impl Unit for Spawner
  {
   BluePrint::new(Units::SPAWNER, vec![ ])
  }
-}
-
-impl Spawner
-{
- fn new(_bp: &BluePrint) -> Result<Self>
+ fn make(&mut self, _bp: &BluePrint) -> Result<()>
  {
-  Ok( Self::default() )
+  Ok(())
  }
 }
 
@@ -573,7 +551,9 @@ impl Units
  {
   for ubp in bp.get_collection()?
       {
-      let aunit : Box<dyn Unit> = match ubp.get_unit()?
+      let mut aunit = self.factory.get(&ubp.get_unit()?).expect("Unknown unit")();
+      aunit.make(ubp)?;
+/*      let aunit : Box<dyn Unit> = match ubp.get_unit()?
            {
            Self::CREDIT_SENSOR => Box::new( CreditSensor::new(ubp)? ),
            Self::BIRTH_SIGNAL => Box::new( BirthSignal::new(ubp)? ),
@@ -581,7 +561,7 @@ impl Units
            Self::CHILD_MAKER => Box::new( ChildMaker::new(ubp)? ),
            Self::SPAWNER => Box::new( Spawner::new(ubp)? ),
            _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
-           };
+           };*/
       self.units.push(aunit);
       }
 
