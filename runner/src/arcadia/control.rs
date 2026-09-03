@@ -1,5 +1,5 @@
 use std::io::{Result, Read, Write, Error, ErrorKind};
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
@@ -519,10 +519,26 @@ impl Values
  }
 }
 
-#[derive(Default)]
+type UnitCreator = fn() -> Box<dyn Unit>;
+
 pub struct Units
 {
+ factory: HashMap<u16, UnitCreator>,
  units: Vec<Box<dyn Unit>>,
+}
+
+impl Default for Units
+{
+ fn default() -> Self
+  {
+  let mut factory: HashMap<u16, UnitCreator> = HashMap::new();
+  factory.insert(Self::CREDIT_SENSOR, || Box::new(CreditSensor::default()) );
+  factory.insert(Self::BIRTH_SIGNAL, || Box::new(BirthSignal::default()) );
+  factory.insert(Self::BIRTH_CREDIT, || Box::new(BirthCredit::default()) );
+  factory.insert(Self::CHILD_MAKER, || Box::new(ChildMaker::default()) );
+  factory.insert(Self::SPAWNER, || Box::new(Spawner::default()) );
+  Units { factory, units: Vec::new() }
+  }
 }
 
 impl Units
@@ -546,15 +562,7 @@ impl Units
   for _ in 0..countu
      {
      let utype = source.read_u16::<LittleEndian>()?;
-     let mut unit : Box<dyn Unit> = match utype
-        {
-        Self::CREDIT_SENSOR => Box::new( CreditSensor::default() ),
-        Self::BIRTH_SIGNAL => Box::new( BirthSignal::default() ),
-        Self::BIRTH_CREDIT => Box::new( BirthCredit::default() ),
-        Self::CHILD_MAKER => Box::new( ChildMaker::default() ),
-        Self::SPAWNER => Box::new( Spawner::default() ),
-        _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
-        };
+     let mut unit = self.factory.get(&utype).expect("Unknown unit")();
      unit.load(source)?;
      self.units.push(unit);
      }
