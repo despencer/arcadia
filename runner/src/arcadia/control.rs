@@ -244,6 +244,7 @@ impl BirthCredit
 #[derive(Default)]
 pub struct ChildMaker
 {
+ variator: Variator
 }
 
 impl Unit for ChildMaker
@@ -252,13 +253,14 @@ impl Unit for ChildMaker
  {
   if source.read_u8()? != 1
      { return Err(Error::new(ErrorKind::InvalidData, "Unknown ChildMaker version")); }
+  self.variator.set( source.read_u32::<LittleEndian>()? );
   Ok(()) 
  }
  fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::CHILD_MAKER)?;
   target.write_u8(1)?;
-
+  target.write_u32::<LittleEndian>(self.variator.precision)?;
   Ok(())
  }
  fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
@@ -267,6 +269,7 @@ impl Unit for ChildMaker
      {
      let mut seed = values.birthcredits.pop_front().unwrap();
      seed.blueprints = units.blueprints();
+     seed.blueprints.variate(&self.variator);
      values.seeds.push_back(seed);
      }
  }
@@ -381,6 +384,17 @@ impl BluePrint
                 { bp.save_1(target)?; } }
     }
   Ok( () )
+ }
+ pub fn variate(&mut self, variator: &Variator)
+ {
+  match self
+    {
+    Self::FValue {value} => *self = Self::FValue { value: variator.variate(*value) },
+    Self::UValue {value} => *self = Self::UValue { value: variator.variate_u32(*value) },
+    Self::Collection {value, ..} =>
+          for bp in value
+            { bp.variate(variator); }
+    }
  }
 }
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
+import pathlib
 import arcadia
 
 def make():
     uni = arcadia.Universe()
     uni.billing = 10
     world = uni.addworld()
-    world.production = 100
+    world.production = 1000
     actor = uni.addactor(world)
     actor.credits = 1000
     actor.control.creditsensor.precision = 10
@@ -14,6 +15,7 @@ def make():
     actor.control.birthsignal.threshold = -1.0
     actor.control.birthsignal.variation = 300
     actor.control.birthcredit.giveaway = 400
+    actor.control.childmaker.variance = 400
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
     world.actors.append(actor)
@@ -28,6 +30,7 @@ def main():
 
     with open(args.filename, 'wb') as f:
         make().save(f)
+    pathlib.Path(args.filename).with_suffix('.history').unlink(missing_ok=True)
 
 if __name__ == "__main__":
     main()

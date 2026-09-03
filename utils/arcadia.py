@@ -206,15 +206,17 @@ class BirthCredit:
 
 class ChildMaker:
     def __init__(self):
-        pass
+        self.variance = 10
 
     def load(self, reader):
         if reader.u8() != 1:
             raise Exception('Unknown version of ChildMaker')
+        self.variance = reader.u32()
 
     def save(self, writer):
         writer.u16(CHILD_MAKER)
         writer.u8(1)
+        writer.u32(self.variance)
 
 class Spawner:
     def __init__(self):

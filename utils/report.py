@@ -7,7 +7,10 @@ def report(uni):
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:
-        print(f'Actor #{a.id}, credits {a.credits}/{a.reserve} (cr={a.control.values.credits}, birth={a.control.values.birth}, bcred={a.control.values.birthcredits}, seeds={a.control.values.seeds}) at #{a.home.id}')
+        rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} (cr={a.control.values.credits}, birth={a.control.values.birth}, bcred={a.control.values.birthcredits}, seeds={a.control.values.seeds}) at #{a.home.id}'
+        rep += f' params [{a.control.creditsensor.precision}, {a.control.birthsignal.scale}, {a.control.birthsignal.threshold},'
+        rep += f' {a.control.birthsignal.variation}, {a.control.birthcredit.giveaway}, {a.control.childmaker.variance} ]'
+        print(rep)
 
 def main():
     import argparse
