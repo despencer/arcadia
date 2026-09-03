@@ -77,8 +77,8 @@ impl Variator
 
 trait Unit
 {
- fn load_1(&mut self, source: &mut dyn Read) -> Result<()>;
- fn save_1(&self, target: &mut dyn Write) -> Result<()>;
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>;
+ fn save(&self, target: &mut dyn Write) -> Result<()>;
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body);
  fn blueprints(&self) -> BluePrint
  {
@@ -94,15 +94,18 @@ pub struct CreditSensor
 
 impl Unit for CreditSensor
 {
- fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>
  {
+  if source.read_u8()? != 1
+     { return Err(Error::new(ErrorKind::InvalidData, "Unknown CreditSensor version")); }
   self.variator.set( source.read_u32::<LittleEndian>()? );
   Ok( () )
  }
 
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::CREDIT_SENSOR)?;
+  target.write_u8(1)?;
   target.write_u32::<LittleEndian>(self.variator.precision)?;
   Ok(())
  }
@@ -146,8 +149,10 @@ impl Default for BirthSignal
 
 impl Unit for BirthSignal
 {
- fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>
  {
+  if source.read_u8()? != 1
+     { return Err(Error::new(ErrorKind::InvalidData, "Unknown BirthSignal version")); }
   self.scale = source.read_f32::<LittleEndian>()?;
   self.threshold = source.read_f32::<LittleEndian>()?;
   self.variation = source.read_u32::<LittleEndian>()?;
@@ -155,9 +160,10 @@ impl Unit for BirthSignal
   Ok( () )
  }
 
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::BIRTH_SIGNAL)?;
+  target.write_u8(1)?;
   target.write_f32::<LittleEndian>(self.scale)?;
   target.write_f32::<LittleEndian>(self.threshold)?;
   target.write_u32::<LittleEndian>(self.variation)?;
@@ -198,14 +204,17 @@ pub struct BirthCredit
 
 impl Unit for BirthCredit
 {
- fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>
  {
+  if source.read_u8()? != 1
+     { return Err(Error::new(ErrorKind::InvalidData, "Unknown BirthCredit version")); }
   self.giveaway.set( source.read_u32::<LittleEndian>()? );
   Ok(())
  }
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::BIRTH_CREDIT)?;
+  target.write_u8(1)?;
   target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
   Ok(())
  }
@@ -239,10 +248,17 @@ pub struct ChildMaker
 
 impl Unit for ChildMaker
 {
- fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ {
+  if source.read_u8()? != 1
+     { return Err(Error::new(ErrorKind::InvalidData, "Unknown ChildMaker version")); }
+  Ok(()) 
+ }
+ fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::CHILD_MAKER)?;
+  target.write_u8(1)?;
+
   Ok(())
  }
  fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
@@ -275,10 +291,16 @@ pub struct Spawner
 
 impl Unit for Spawner
 {
- fn load_1(&mut self, _source: &mut dyn Read) -> Result<()> { Ok(()) }
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn load(&mut self, source: &mut dyn Read) -> Result<()>
+ {
+  if source.read_u8()? != 1
+     { return Err(Error::new(ErrorKind::InvalidData, "Unknown Spawner version")); }
+  Ok(()) 
+ }
+ fn save(&self, target: &mut dyn Write) -> Result<()>
  {
   target.write_u16::<LittleEndian>(Units::SPAWNER)?;
+  target.write_u8(1)?;
   Ok(())
  }
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
@@ -519,7 +541,7 @@ impl Units
         Self::SPAWNER => Box::new( Spawner::default() ),
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
         };
-     unit.load_1(source)?;
+     unit.load(source)?;
      self.units.push(unit);
      }
    Ok(())
@@ -541,40 +563,6 @@ impl Units
       self.units.push(aunit);
       }
 
-/*  match bp
-    {
-    BluePrint::Collection {unit, value} => 
-      {
-      match *unit
-         {
-         Self::COMPOUND =>
-             {
-             for ubp in value.iter()
-                 {
-                 match ubp
-                   {
-                   BluePrint::Collection {unit, value} => 
-                       {
-                       let aunit : Box<dyn Unit> = match *unit
-                              {
-                              Self::CREDIT_SENSOR => Box::new( CreditSensor::new(&value)? ),
-                              Self::BIRTH_SIGNAL => Box::new( BirthSignal::new(&value)? ),
-                              Self::BIRTH_CREDIT => Box::new( BirthCredit::new(&value)? ),
-                              Self::CHILD_MAKER => Box::new( ChildMaker::new(&value)? ),
-                              Self::SPAWNER => Box::new( Spawner::new(&value)? ),
-                              _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
-                              };
-                       self.units.push(aunit);
-                       },
-                     _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid blueprint"))
-                    }
-                 }
-             },
-             _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid blueprint for compound"))
-          }
-      },
-      _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown blueprint"))
-    }*/
   Ok(())
  }
 
@@ -582,7 +570,7 @@ impl Units
  {
   target.write_u32::<LittleEndian>(self.units.len() as u32)?;
   for unit in self.units.iter()
-      { unit.save_1(target)?; }
+      { unit.save(target)?; }
    Ok(())
  }
 

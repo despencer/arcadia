@@ -161,10 +161,13 @@ class CreditSensor:
         self.precision = 0
 
     def load(self, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of CreditSensor')
         self.precision = reader.u32()
 
     def save(self, writer):
         writer.u16(CREDIT_SENSOR)
+        writer.u8(1)
         writer.u32(self.precision)
 
 class BirthSignal:
@@ -174,12 +177,15 @@ class BirthSignal:
         self.variation = 0
 
     def load(self, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of BirthSignal')
         self.scale = reader.f32()
         self.threshold = reader.f32()
         self.variation = reader.u32()
 
     def save(self, writer):
         writer.u16(BIRTH_SIGNAL)
+        writer.u8(1)
         writer.f32(self.scale)
         writer.f32(self.threshold)
         writer.u32(self.variation)
@@ -189,10 +195,13 @@ class BirthCredit:
         self.giveaway = 0
 
     def load(self, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of BirthCredit')
         self.giveaway = reader.u32()
 
     def save(self, writer):
         writer.u16(BIRTH_CREDIT)
+        writer.u8(1)
         writer.u32(self.giveaway)
 
 class ChildMaker:
@@ -200,20 +209,24 @@ class ChildMaker:
         pass
 
     def load(self, reader):
-        pass
+        if reader.u8() != 1:
+            raise Exception('Unknown version of ChildMaker')
 
     def save(self, writer):
         writer.u16(CHILD_MAKER)
+        writer.u8(1)
 
 class Spawner:
     def __init__(self):
         pass
 
     def load(self, reader):
-        pass
+        if reader.u8() != 1:
+            raise Exception('Unknown version of Spawner')
 
     def save(self, writer):
         writer.u16(SPAWNER)
+        writer.u8(1)
 
 class Control:
     def __init__(self):
