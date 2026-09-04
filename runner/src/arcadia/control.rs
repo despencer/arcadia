@@ -1,6 +1,5 @@
 use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::collections::{VecDeque, HashMap};
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
 use crate::arcadia::storage::{Reader,Writer};
@@ -323,20 +322,20 @@ impl BluePrint
  const UVALUE: u8 = 2;
  const COLLECTION: u8 = 3;
 
- pub fn load_1(source: &mut dyn Read) -> Result<Self>
+ pub fn load(source: &mut Reader) -> Result<Self>
  {
-  let utype = source.read_u8()?;
+  let utype = source.u8()?;
   let bp = match utype
         {
-        Self::FVALUE => Self::FValue { value: source.read_f32::<LittleEndian>()? },
-        Self::UVALUE => Self::UValue { value: source.read_u32::<LittleEndian>()? },
+        Self::FVALUE => Self::FValue { value: source.f32()? },
+        Self::UVALUE => Self::UValue { value: source.u32()? },
         Self::COLLECTION =>
               {
-              let unit = source.read_u16::<LittleEndian>()?;
+              let unit = source.u16()?;
               let mut value : Vec<BluePrint> = Vec::new();
-              let ucount = source.read_u32::<LittleEndian>()? as usize;
+              let ucount = source.u32()?;
               for _ in 0..ucount
-                 { value.push( BluePrint::load_1(source)? ); }
+                 { value.push( BluePrint::load(source)? ); }
               Self::Collection { unit: unit, value: value }
               },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
@@ -344,20 +343,20 @@ impl BluePrint
 
   Ok(bp)
  }
- pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ pub fn save(&self, target: &mut Writer) -> Result<()>
  {
   match self
     {
     Self::FValue {value} =>
-           { target.write_u8(Self::FVALUE)?; target.write_f32::<LittleEndian>(*value)? },
+           { target.u8(Self::FVALUE)?; target.f32(*value)? },
     Self::UValue {value} =>
-           { target.write_u8(Self::UVALUE)?; target.write_u32::<LittleEndian>(*value)? },
+           { target.u8(Self::UVALUE)?; target.u32(*value)? },
     Self::Collection {unit, value} =>
-           { target.write_u8(Self::COLLECTION)?;
-             target.write_u16::<LittleEndian>(*unit)?;
-             target.write_u32::<LittleEndian>(value.len() as u32)?;
+           { target.u8(Self::COLLECTION)?;
+             target.u16(*unit)?;
+             target.u32(value.len() as u32)?;
              for bp in value.iter()
-                { bp.save_1(target)?; } }
+                { bp.save(target)?; } }
     }
   Ok( () )
  }
@@ -441,20 +440,25 @@ impl Seed
   Seed { credits: credits, blueprints: BluePrint::default() }
  }
 
- pub fn load_1(source: &mut dyn Read) -> Result<Self>
+ pub fn load(source: &mut Reader) -> Result<Self>
  {
-  let credits = source.read_u32::<LittleEndian>()?;
-  let bp = BluePrint::load_1(source)?;
+  let credits = source.u32()?;
+  let bp = BluePrint::load(source)?;
   Ok( Seed { credits: credits, blueprints:bp } )
  }
 
- pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ pub fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.credits)?;
-  self.blueprints.save_1(target)?;
+  target.u32(self.credits)?;
+  self.blueprints.save(target)?;
   Ok( () )
  }
 
+}
+
+pub enum Value
+{
+ FValue { value: f32 }
 }
 
 #[derive(Default)]
@@ -463,34 +467,35 @@ pub struct Values
  credits: f32,
  birth: bool,
  birthcredits: VecDeque<Seed>,
- seeds: VecDeque<Seed>
+ seeds: VecDeque<Seed>,
+ values: Vec<Value>
 }
 
 impl Values
 {
- fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ fn load(&mut self, source: &mut Reader) -> Result<()>
  {
-  self.credits = source.read_f32::<LittleEndian>()?;
-  self.birth = (source.read_u8()?) != 0;
-  let countbc = source.read_u32::<LittleEndian>()? as usize;
+  self.credits = source.f32()?;
+  self.birth = (source.u8()?) != 0;
+  let countbc = source.count()?;
   for _ in 0..countbc
-    { self.birthcredits.push_back( Seed::load_1(source)? ); }
-  let counts = source.read_u32::<LittleEndian>()? as usize;
+    { self.birthcredits.push_back( Seed::load(source)? ); }
+  let counts = source.count()? as usize;
   for _ in 0..counts
-    { self.seeds.push_back( Seed::load_1(source)? ); }
+    { self.seeds.push_back( Seed::load(source)? ); }
   Ok( () )
  }
 
- fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_f32::<LittleEndian>(self.credits)?;
-  target.write_u8(self.birth as u8)?;
-  target.write_u32::<LittleEndian>(self.birthcredits.len() as u32)?;
+  target.f32(self.credits)?;
+  target.u8(self.birth as u8)?;
+  target.count(self.birthcredits.len())?;
   for seed in self.birthcredits.iter()
-      { seed.save_1(target)?; }
-  target.write_u32::<LittleEndian>(self.seeds.len() as u32)?;
+      { seed.save(target)?; }
+  target.count(self.seeds.len())?;
   for seed in self.seeds.iter()
-      { seed.save_1(target)?; }
+      { seed.save(target)?; }
   Ok(())
  }
 }
@@ -603,7 +608,7 @@ impl Control
  {
    let mut reader = Reader::new(source);
    self.units.load(&mut reader)?;
-   self.values.load_1(source)?;
+   self.values.load(&mut reader)?;
    Ok(())
  }
 
@@ -611,7 +616,7 @@ impl Control
  {
    let mut writer = Writer::new(target);
    self.units.save(&mut writer)?;
-   self.values.save_1(target)?;
+   self.values.save(&mut writer)?;
    Ok(())
  }
 }
