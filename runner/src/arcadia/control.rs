@@ -3,7 +3,7 @@ use std::collections::{VecDeque, HashMap};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
-use crate::arcadia::storage::Reader;
+use crate::arcadia::storage::{Reader,Writer};
 
 pub struct Sampler
 {
@@ -81,7 +81,7 @@ trait Unit
  fn utype(&self) -> u16;
  fn version(&self) -> u8;
  fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>;
- fn save(&self, target: &mut dyn Write) -> Result<()>;
+ fn save(&self, target: &mut Writer) -> Result<()>;
  fn tick(&self, units: &Units, values: &mut Values, body: &mut Body);
  fn blueprints(&self) -> BluePrint;
  fn make(&mut self, _bp: &BluePrint) -> Result<()>;
@@ -104,9 +104,9 @@ impl Unit for CreditSensor
   Ok( () )
  }
 
- fn save(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.variator.precision)?;
+  target.u32(self.variator.precision)?;
   Ok(())
  }
 
@@ -157,11 +157,11 @@ impl Unit for BirthSignal
   Ok( () )
  }
 
- fn save(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_f32::<LittleEndian>(self.scale)?;
-  target.write_f32::<LittleEndian>(self.threshold)?;
-  target.write_u32::<LittleEndian>(self.variation)?;
+  target.f32(self.scale)?;
+  target.f32(self.threshold)?;
+  target.u32(self.variation)?;
   Ok(())
  }
 
@@ -202,9 +202,9 @@ impl Unit for BirthCredit
   self.giveaway.set( reader.u32()? );
   Ok(())
  }
- fn save(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.giveaway.nominal)?;
+  target.u32(self.giveaway.nominal)?;
   Ok(())
  }
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
@@ -241,9 +241,9 @@ impl Unit for ChildMaker
   self.variator.set( reader.u32()? );
   Ok(()) 
  }
- fn save(&self, target: &mut dyn Write) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.variator.precision)?;
+  target.u32(self.variator.precision)?;
   Ok(())
  }
  fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
@@ -282,7 +282,7 @@ impl Unit for Spawner
  {
   Ok(()) 
  }
- fn save(&self, _target: &mut dyn Write) -> Result<()>
+ fn save(&self, _target: &mut Writer) -> Result<()>
  {
   Ok(())
  }
@@ -558,13 +558,13 @@ impl Units
   Ok(())
  }
 
- pub fn save(&self, target: &mut dyn Write) -> Result<()>
+ pub fn save(&self, target: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.units.len() as u32)?;
+  target.count(self.units.len())?;
   for unit in self.units.iter()
       {
-      target.write_u16::<LittleEndian>(unit.utype())?;
-      target.write_u8(unit.version())?;
+      target.u16(unit.utype())?;
+      target.u8(unit.version())?;
       unit.save(target)?;
       }
    Ok(())
@@ -609,7 +609,8 @@ impl Control
 
  pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
-   self.units.save(target)?;
+   let mut writer = Writer::new(target);
+   self.units.save(&mut writer)?;
    self.values.save_1(target)?;
    Ok(())
  }
