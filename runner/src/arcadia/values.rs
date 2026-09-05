@@ -1,4 +1,4 @@
-use std::io::{Result};
+use std::io::{Result, Error, ErrorKind};
 use std::collections::{VecDeque};
 use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::control::{BluePrint};
@@ -49,29 +49,34 @@ pub struct Values
 
 impl Values
 {
- pub fn load(&mut self, source: &mut Reader) -> Result<()>
+ fn version(&self) -> u8 { 1 }
+
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
-  self.credits = source.f32()?;
-  self.birth = (source.u8()?) != 0;
-  let countbc = source.count()?;
+  if reader.u8()? > self.version()
+         { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
+  self.credits = reader.f32()?;
+  self.birth = (reader.u8()?) != 0;
+  let countbc = reader.count()?;
   for _ in 0..countbc
-    { self.birthcredits.push_back( Seed::load(source)? ); }
-  let counts = source.count()? as usize;
+    { self.birthcredits.push_back( Seed::load(reader)? ); }
+  let counts = reader.count()? as usize;
   for _ in 0..counts
-    { self.seeds.push_back( Seed::load(source)? ); }
+    { self.seeds.push_back( Seed::load(reader)? ); }
   Ok( () )
  }
 
- pub fn save(&self, target: &mut Writer) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  target.f32(self.credits)?;
-  target.u8(self.birth as u8)?;
-  target.count(self.birthcredits.len())?;
+  writer.u8(self.version())?;
+  writer.f32(self.credits)?;
+  writer.u8(self.birth as u8)?;
+  writer.count(self.birthcredits.len())?;
   for seed in self.birthcredits.iter()
-      { seed.save(target)?; }
-  target.count(self.seeds.len())?;
+      { seed.save(writer)?; }
+  writer.count(self.seeds.len())?;
   for seed in self.seeds.iter()
-      { seed.save(target)?; }
+      { seed.save(writer)?; }
   Ok(())
  }
 }

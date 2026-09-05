@@ -145,12 +145,15 @@ class Values:
         self.seeds = []
 
     def load(self, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of Values')
         self.credits = reader.f32()
         self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
         reader.array(self.seeds, Seed.load)
 
     def save(self, writer):
+        writer.u8(1)
         writer.f32(self.credits)
         writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)
