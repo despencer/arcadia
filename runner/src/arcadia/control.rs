@@ -1,7 +1,8 @@
 use std::io::{Result, Read, Write, Error, ErrorKind};
-use std::collections::{VecDeque, HashMap};
+use std::collections::HashMap;
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
+use crate::arcadia::values::{Seed, Values};
 use crate::arcadia::storage::{Reader,Writer};
 
 pub struct Sampler
@@ -427,79 +428,6 @@ impl BluePrint
 
 }
 
-pub struct Seed
-{
- pub credits: u32,
- pub blueprints: BluePrint
-}
-
-impl Seed
-{
- pub fn new(credits: u32) -> Seed
- {
-  Seed { credits: credits, blueprints: BluePrint::default() }
- }
-
- pub fn load(source: &mut Reader) -> Result<Self>
- {
-  let credits = source.u32()?;
-  let bp = BluePrint::load(source)?;
-  Ok( Seed { credits: credits, blueprints:bp } )
- }
-
- pub fn save(&self, target: &mut Writer) -> Result<()>
- {
-  target.u32(self.credits)?;
-  self.blueprints.save(target)?;
-  Ok( () )
- }
-
-}
-
-pub enum Value
-{
- FValue { value: f32 }
-}
-
-#[derive(Default)]
-pub struct Values
-{
- credits: f32,
- birth: bool,
- birthcredits: VecDeque<Seed>,
- seeds: VecDeque<Seed>,
- values: Vec<Value>
-}
-
-impl Values
-{
- fn load(&mut self, source: &mut Reader) -> Result<()>
- {
-  self.credits = source.f32()?;
-  self.birth = (source.u8()?) != 0;
-  let countbc = source.count()?;
-  for _ in 0..countbc
-    { self.birthcredits.push_back( Seed::load(source)? ); }
-  let counts = source.count()? as usize;
-  for _ in 0..counts
-    { self.seeds.push_back( Seed::load(source)? ); }
-  Ok( () )
- }
-
- fn save(&self, target: &mut Writer) -> Result<()>
- {
-  target.f32(self.credits)?;
-  target.u8(self.birth as u8)?;
-  target.count(self.birthcredits.len())?;
-  for seed in self.birthcredits.iter()
-      { seed.save(target)?; }
-  target.count(self.seeds.len())?;
-  for seed in self.seeds.iter()
-      { seed.save(target)?; }
-  Ok(())
- }
-}
-
 type UnitCreator = fn() -> Box<dyn Unit>;
 
 pub struct Units
@@ -594,6 +522,8 @@ pub struct Control
 
 impl Control
 {
+ fn version(&self) -> u8 { 1 }
+
  pub fn tick(&mut self, body: &mut Body)
  {
   self.units.tick(&mut self.values, body);
@@ -607,6 +537,8 @@ impl Control
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
  {
    let mut reader = Reader::new(source);
+   if reader.u8()? > self.version()
+         { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
    self.units.load(&mut reader)?;
    self.values.load(&mut reader)?;
    Ok(())
@@ -615,6 +547,7 @@ impl Control
  pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
    let mut writer = Writer::new(target);
+   writer.u8(self.version())?;
    self.units.save(&mut writer)?;
    self.values.save(&mut writer)?;
    Ok(())

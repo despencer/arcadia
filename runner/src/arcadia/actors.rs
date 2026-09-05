@@ -1,7 +1,8 @@
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::dispatcher::Dispatcher;
-use crate::arcadia::control::{Control, Seed};
+use crate::arcadia::control::Control;
+use crate::arcadia::values::Seed;
 
 #[derive(Default)]
 pub enum ActorLifecycle

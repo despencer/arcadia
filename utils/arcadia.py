@@ -241,6 +241,8 @@ class Control:
         self.values = Values()
 
     def load(self, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of Control')
         self.units = []
         for i in range( reader.u32() ):
             utype = reader.u16()
@@ -260,6 +262,7 @@ class Control:
         self.values.load(reader)
 
     def save(self, writer):
+        writer.u8(1)
         writer.u32( len(self.units) )
         for u in self.units:
             u.save(writer)
