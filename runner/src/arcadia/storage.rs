@@ -1,5 +1,16 @@
+use std::collections::{VecDeque};
 use std::io::{Result, Read, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+
+pub trait Stored
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>;
+}
+
+pub trait Factory where Self:Sized
+{
+ fn load(reader: &mut Reader) -> Result<Self>;
+}
 
 pub struct Reader<'a>
 {
@@ -25,15 +36,20 @@ impl<'a> Reader<'a>
  {
   self.source.read_u32::<LittleEndian>()
  }
-
  pub fn f32(&mut self) -> Result<f32>
  {
   self.source.read_f32::<LittleEndian>()
  }
-
  pub fn count(&mut self) -> Result<u32>
  {
   self.u32()
+ }
+ pub fn vecdeque<T:Factory>(&mut self, value: &mut VecDeque<T>) -> Result<()>
+ {
+  value.clear();
+  for _ in 0..self.count()?
+    { value.push_back( T::load(self)? ); }
+  Ok(())
  }
 }
 
@@ -68,5 +84,12 @@ impl<'a> Writer<'a>
  pub fn count(&mut self, value: usize) -> Result<()>
  {
   self.u32(value as u32)
+ }
+ pub fn vecdeque<T:Stored>(&mut self, value: &VecDeque<T>) -> Result<()>
+ {
+  self.count(value.len())?;
+  for item in value.iter()
+     { item.save(self)?; }
+  Ok(())
  }
 }
