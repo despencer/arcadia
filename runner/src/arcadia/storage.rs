@@ -51,6 +51,13 @@ impl<'a> Reader<'a>
     { value.push_back( T::load(self)? ); }
   Ok(())
  }
+ pub fn vec<T:Factory>(&mut self, value: &mut Vec<T>) -> Result<()>
+ {
+  value.clear();
+  for _ in 0..self.count()?
+    { value.push( T::load(self)? ); }
+  Ok(())
+ }
 }
 
 pub struct Writer<'a>
@@ -86,6 +93,13 @@ impl<'a> Writer<'a>
   self.u32(value as u32)
  }
  pub fn vecdeque<T:Stored>(&mut self, value: &VecDeque<T>) -> Result<()>
+ {
+  self.count(value.len())?;
+  for item in value.iter()
+     { item.save(self)?; }
+  Ok(())
+ }
+ pub fn vec<T:Stored>(&mut self, value: &Vec<T>) -> Result<()>
  {
   self.count(value.len())?;
   for item in value.iter()

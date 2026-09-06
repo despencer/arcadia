@@ -137,16 +137,36 @@ class Seed:
     def __repr__(self):
         return f"Seed {self.credits}"
 
+class Value:
+    FVALUE = 1
+
+    def __init__(self):
+        self.kind = 0
+        self.value = None
+
+    @classmethod
+    def load(cls, reader):
+        value = cls()
+        value.kind = reader.u8()
+        value.value = {FVALUE : lambda x: x.f32()}[value.kind](reader)
+        return value
+
+    def save(self, writer):
+        writer.u8(self.kind)
+        {FVALUE : lambda x: x.f32()}[self.kind](writer)
+
 class Values:
     def __init__(self):
         self.credits = 0.0
         self.birth = False
         self.birthcredits = []
         self.seeds = []
+        self.values = []
 
     def load(self, reader):
         if reader.u8() != 1:
             raise Exception('Unknown version of Values')
+        reader.array(self.values, Value.load)
         self.credits = reader.f32()
         self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
@@ -154,6 +174,7 @@ class Values:
 
     def save(self, writer):
         writer.u8(1)
+        writer.array(self.values, Value.save)
         writer.f32(self.credits)
         writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)

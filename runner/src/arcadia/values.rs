@@ -43,14 +43,43 @@ pub enum Value
  FValue { value: f32 }
 }
 
+impl Value
+{
+ const FVALUE: u8 = 1;
+}
+
+impl Stored for Value
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  match self
+    {
+    Self::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(*value) }
+    }
+ }
+}
+
+impl Factory for Value
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+ {
+  let v = match reader.u8()?
+    {
+    Self::FVALUE => Self::FValue { value: reader.f32()? },
+    _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown value"))
+    };
+  Ok(v)
+ }
+}
+
 #[derive(Default)]
 pub struct Values
 {
+ pub values: Vec<Value>,
  pub credits: f32,
  pub birth: bool,
  pub birthcredits: VecDeque<Seed>,
  pub seeds: VecDeque<Seed>,
- pub values: Vec<Value>
 }
 
 impl Values
@@ -61,6 +90,7 @@ impl Values
  {
   if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
+  reader.vec(&mut self.values)?;
   self.credits = reader.f32()?;
   self.birth = (reader.u8()?) != 0;
   reader.vecdeque(&mut self.birthcredits)?;
@@ -70,6 +100,7 @@ impl Values
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
   writer.u8(self.version())?;
+  writer.vec(&self.values)?;
   writer.f32(self.credits)?;
   writer.u8(self.birth as u8)?;
   writer.vecdeque(&self.birthcredits)?;
