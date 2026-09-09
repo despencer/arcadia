@@ -1,0 +1,28 @@
+units:
+   - name: CreditSensor
+     id: 2
+     data:
+       - name: precision
+         type: u32
+   - name: BirthSignal
+     id: 3
+     data:
+       - name: scale
+         type: f32
+       - name: threshold
+         type: f32
+       - name: variation
+         type: u32
+   - name: BirthCredit
+     id: 4
+     data:
+       - name: giveaway
+         type: u32
+   - name: ChildMaker
+     id: 5
+     data:
+       - name: variance
+         type: u32
+   - name: Spawner
+     id: 6
+     data: []

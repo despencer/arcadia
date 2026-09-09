@@ -1,5 +1,7 @@
+import os
 import struct
 import arhistory
+import units
 
 msb='little'
 UNIVERSE_VERSION=1
@@ -254,6 +256,10 @@ class Spawner:
         writer.u16(SPAWNER)
         writer.u8(1)
 
+class Unit:
+    def __init__(self, meta):
+        self.meta = meta
+
 class Control:
     def __init__(self):
         self.creditsensor = CreditSensor()
@@ -262,27 +268,15 @@ class Control:
         self.childmaker = ChildMaker()
         self.spawner = Spawner()
         self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker, self.spawner ]
+        self.units = []
         self.values = Values()
 
-    def load(self, reader):
+    def load(self, metastr, reader):
         if reader.u8() != 1:
             raise Exception('Unknown version of Control')
         self.units = []
         for i in range( reader.u32() ):
-            utype = reader.u16()
-            unit = { CREDIT_SENSOR: CreditSensor, BIRTH_SIGNAL: BirthSignal, BIRTH_CREDIT: BirthCredit, CHILD_MAKER: ChildMaker, SPAWNER: Spawner }[utype]()
-            self.units.append(unit)
-            if utype == CREDIT_SENSOR:
-                self.creditsensor = unit
-            elif utype == BIRTH_SIGNAL:
-                self.birthsignal = unit
-            elif utype == BIRTH_CREDIT:
-                self.birthcredit = unit
-            elif utype == CHILD_MAKER:
-                self.childmaker = unit
-            elif utype == SPAWNER:
-                self.spawner = unit
-            unit.load(reader)
+            self.units.append( metastr.read_unit(reader) )
         self.values.load(reader)
 
     def save(self, writer):
@@ -301,13 +295,13 @@ class Actor:
         self.control = Control()
 
     @classmethod
-    def load(cls, reader):
+    def load(cls, metastr, reader):
         actor = cls()
         actor.id = reader.u64()
         actor.home = reader.u64()
         actor.credits = reader.u32()
         actor.reserve = reader.u32()
-        actor.control.load(reader)
+        actor.control.load(metastr, reader)
         reader.actors[actor.id] = actor
         return actor
 
@@ -347,6 +341,7 @@ class World:
 
 class Universe:
     def __init__(self):
+        self.units = units.load( os.path.dirname(__file__) + '/units.yaml')
         self.timetick = 0
         self.lastseqid = 0
         self.billing = 0
@@ -380,7 +375,7 @@ class Universe:
         uni.timetick = reader.u64()
         uni.lastseqid = reader.u64()
         uni.billing = reader.u32()
-        reader.array(uni.actors, Actor.load)
+        reader.array(uni.actors, lambda x: Actor.load(uni.units, x))
         reader.array(uni.worlds, World.load)
         for a in uni.actors:
             a.update(reader)
