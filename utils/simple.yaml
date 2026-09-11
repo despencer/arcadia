@@ -1,0 +1,24 @@
+control:
+   units:
+     - type: CreditSensor
+       data:
+          - name: precision
+            value: 10
+     - type: BirthSignal
+       data:
+          - name: scale
+            value: 800.0
+          - name: threshold
+            value: -1.0
+          - name: variation
+            value: 300
+     - type: BirthCredit
+       data:
+          - name: giveaway
+            value: 400
+     - type: ChildMaker
+       data:
+          - name: variance
+            value: 400
+     - type: Spawner
+       data: []

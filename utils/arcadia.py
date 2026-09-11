@@ -6,13 +6,6 @@ import units
 msb='little'
 UNIVERSE_VERSION=1
 
-COMPOUND = 1
-CREDIT_SENSOR = 2;
-BIRTH_SIGNAL = 3;
-BIRTH_CREDIT = 4;
-CHILD_MAKER = 5;
-SPAWNER = 6;
-
 class Reader:
     def __init__(self, fs):
         self.fs = fs
@@ -182,92 +175,15 @@ class Values:
         writer.array(self.birthcredits, Seed.save)
         writer.array(self.seeds, Seed.save)
 
-class CreditSensor:
-    def __init__(self):
-        self.precision = 0
-
-    def load(self, reader):
-        if reader.u8() != 1:
-            raise Exception('Unknown version of CreditSensor')
-        self.precision = reader.u32()
-
-    def save(self, writer):
-        writer.u16(CREDIT_SENSOR)
-        writer.u8(1)
-        writer.u32(self.precision)
-
-class BirthSignal:
-    def __init__(self):
-        self.scale = 0
-        self.threshold = 0
-        self.variation = 0
-
-    def load(self, reader):
-        if reader.u8() != 1:
-            raise Exception('Unknown version of BirthSignal')
-        self.scale = reader.f32()
-        self.threshold = reader.f32()
-        self.variation = reader.u32()
-
-    def save(self, writer):
-        writer.u16(BIRTH_SIGNAL)
-        writer.u8(1)
-        writer.f32(self.scale)
-        writer.f32(self.threshold)
-        writer.u32(self.variation)
-
-class BirthCredit:
-    def __init__(self):
-        self.giveaway = 0
-
-    def load(self, reader):
-        if reader.u8() != 1:
-            raise Exception('Unknown version of BirthCredit')
-        self.giveaway = reader.u32()
-
-    def save(self, writer):
-        writer.u16(BIRTH_CREDIT)
-        writer.u8(1)
-        writer.u32(self.giveaway)
-
-class ChildMaker:
-    def __init__(self):
-        self.variance = 0
-
-    def load(self, reader):
-        if reader.u8() != 1:
-            raise Exception('Unknown version of ChildMaker')
-        self.variance = reader.u32()
-
-    def save(self, writer):
-        writer.u16(CHILD_MAKER)
-        writer.u8(1)
-        writer.u32(self.variance)
-
-class Spawner:
-    def __init__(self):
-        pass
-
-    def load(self, reader):
-        if reader.u8() != 1:
-            raise Exception('Unknown version of Spawner')
-
-    def save(self, writer):
-        writer.u16(SPAWNER)
-        writer.u8(1)
-
 class Unit:
     def __init__(self, meta):
         self.meta = meta
 
+    def save(self, writer):
+        self.meta.write(writer, self)
+
 class Control:
     def __init__(self):
-        self.creditsensor = CreditSensor()
-        self.birthsignal = BirthSignal()
-        self.birthcredit = BirthCredit()
-        self.childmaker = ChildMaker()
-        self.spawner = Spawner()
-        self.units = [ self.creditsensor, self.birthsignal, self.birthcredit, self.childmaker, self.spawner ]
         self.units = []
         self.values = Values()
 

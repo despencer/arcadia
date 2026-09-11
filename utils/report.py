@@ -3,10 +3,10 @@
 import arcadia
 
 def unit_params(unit):
-    return '['+ ' ,'.join(map(lambda x: str(getattr(unit, x.name))  , unit.meta.members))  +']'
+    return '['+ ', '.join(map(lambda x: str(getattr(unit, x.name))  , unit.meta.members))  +']'
 
-def params(actor, units):
-    return "["+ ' ,'.join(map(unit_params, actor.control.units)) +"]"
+def params(actor):
+    return "["+ ', '.join(map(unit_params, actor.control.units)) +"]"
 
 def report(uni):
     print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
@@ -14,7 +14,7 @@ def report(uni):
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:
         rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} (cr={a.control.values.credits}, birth={a.control.values.birth}, bcred={a.control.values.birthcredits}, seeds={a.control.values.seeds}) at #{a.home.id}'
-        rep += f' params {params(a, uni.units.units)}'
+        rep += f' params {params(a)}'
         print(rep)
 
 def main():

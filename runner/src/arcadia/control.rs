@@ -179,6 +179,7 @@ impl Unit for BirthSignal
 
  fn make(&mut self, bp: &BluePrint) -> Result<()>
  {
+  self.scale = bp.get_f32(0)?;
   self.threshold = bp.get_f32(1)?;
   self.variation = bp.get_u32(2)?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
