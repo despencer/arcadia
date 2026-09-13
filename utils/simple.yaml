@@ -22,3 +22,7 @@ control:
             value: 400
      - type: Spawner
        data: []
+   values:
+      - name: credits
+        type: f32
+        value: 1000.0

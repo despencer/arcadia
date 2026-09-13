@@ -26,3 +26,6 @@ units:
    - name: Spawner
      id: 6
      data: []
+values:
+   - type: f32
+     id: 1

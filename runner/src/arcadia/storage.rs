@@ -1,5 +1,5 @@
 use std::collections::{VecDeque};
-use std::io::{Result, Read, Write};
+use std::io::{Result, Read, Write, Error, ErrorKind};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 
 pub trait Stored
@@ -43,6 +43,13 @@ impl<'a> Reader<'a>
  pub fn count(&mut self) -> Result<u32>
  {
   self.u32()
+ }
+ pub fn utf8(&mut self) -> Result<String>
+ {
+  let size = self.u16()? as usize;
+  let mut buf = vec![0u8; size];
+  self.source.read_exact(&mut buf)?;
+  String::from_utf8(buf).map_err(|e| Error::new(ErrorKind::InvalidData, e))
  }
  pub fn vecdeque<T:Factory>(&mut self, value: &mut VecDeque<T>) -> Result<()>
  {
@@ -91,6 +98,12 @@ impl<'a> Writer<'a>
  pub fn count(&mut self, value: usize) -> Result<()>
  {
   self.u32(value as u32)
+ }
+ pub fn utf8(&mut self, value: &String) -> Result<()>
+ {
+  let buf = value.as_bytes();
+  self.u16( buf.len() as u16)?;
+  self.target.write_all(buf)
  }
  pub fn vecdeque<T:Stored>(&mut self, value: &VecDeque<T>) -> Result<()>
  {

@@ -61,20 +61,49 @@ class Unit:
         for m in self.members:
             m.kind.write(writer, getattr(unit, m.name))
 
+class Value:
+    def __init__(self):
+        self.id = 0
+        self.kind = None
+
+    @classmethod
+    def load(cls, jv, structure):
+        v = cls()
+        v.id = jv['id']
+        v.kind = structure.get_kind(jv['type'])
+        return v
+
+    def make(self, jvaluedef):
+        return arcadia.Value(self, jvaluedef['name'], jvaluedef['value'])
+
+    def read(self, reader):
+        return arcadia.Value(self, reader.utf8(), self.kind.read(reader))
+
+    def write(self, writer, value):
+        writer.u8(self.id)
+        writer.utf8(value.name)
+        self.kind.write(writer, value.value)
+
 class Structure:
     def __init__(self):
         self.kinds = { 'u32':SimpleType('u32'), 'f32':SimpleType('f32') }
         self.unitids = {}
         self.unitnames = {}
+        self.valueids = {}
+        self.valuetypes = {}
 
     def get_kind(self, typename):
         return self.kinds[typename]
 
-    def load(self, junits):
-        for junit in junits:
+    def load(self, jstr):
+        for junit in jstr['units']:
             unit = Unit.load(junit, self)
             self.unitids[unit.id] = unit
             self.unitnames[unit.name] = unit
+        for jvalue in jstr['values']:
+            value = Value.load(jvalue, self)
+            self.valueids[value.id] = value
+            self.valuetypes[value.kind.name] = value
 
     def make_unit(self, junitdef):
         return self.unitnames[ junitdef['type'] ].make(junitdef)
@@ -82,9 +111,15 @@ class Structure:
     def read_unit(self, reader):
         return self.unitids[reader.u16()].read(reader)
 
+    def make_value(self, jvaluedef):
+        return self.valuetypes[ jvaluedef['type'] ].make(jvaluedef)
+
+    def read_value(self, reader):
+        return self.valueids[reader.u8()].read(reader)
+
 def load(filename):
     with open(filename) as strfile:
         structure = Structure()
         ystr = yaml.load(strfile, Loader=yaml.Loader)
-        structure.load(ystr['units'])
+        structure.load(ystr)
         return structure

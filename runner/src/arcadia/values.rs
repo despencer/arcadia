@@ -40,7 +40,7 @@ impl Stored for Seed
 
 pub enum Value
 {
- FValue { value: f32 }
+ FValue { name: String, value: f32 }
 }
 
 impl Value
@@ -54,7 +54,7 @@ impl Stored for Value
  {
   match self
     {
-    Self::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(*value) }
+    Self::FValue {name, value} => { writer.u8(Self::FVALUE)?; writer.utf8(name)?;  writer.f32(*value) }
     }
  }
 }
@@ -65,7 +65,7 @@ impl Factory for Value
  {
   let v = match reader.u8()?
     {
-    Self::FVALUE => Self::FValue { value: reader.f32()? },
+    Self::FVALUE => Self::FValue { name: reader.utf8()?, value: reader.f32()? },
     _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown value"))
     };
   Ok(v)

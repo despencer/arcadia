@@ -33,6 +33,9 @@ class Reader:
     def bl(self):
         return (self.u8() != 0)
 
+    def utf8(self):
+        return self.fs.read(self.u16()).decode('utf-8')
+
     def array(self, alist, reader):
         acount = self.u32()
         for i in range(acount):
@@ -65,6 +68,11 @@ class Writer:
             self.u8(1)
         else:
             self.u8(0)
+
+    def utf8(self, value):
+        data = value.encode('utf-8')
+        self.u16(len(data))
+        self.fs.write(data)
 
     def array(self, alist, writer):
         self.u32(len(alist))
@@ -133,22 +141,16 @@ class Seed:
         return f"Seed {self.credits}"
 
 class Value:
-    FVALUE = 1
-
-    def __init__(self):
-        self.kind = 0
-        self.value = None
-
-    @classmethod
-    def load(cls, reader):
-        value = cls()
-        value.kind = reader.u8()
-        value.value = {FVALUE : lambda x: x.f32()}[value.kind](reader)
-        return value
+    def __init__(self, meta, name, value):
+        self.meta = meta
+        self.name = name
+        self.value = value
 
     def save(self, writer):
-        writer.u8(self.kind)
-        {FVALUE : lambda x: x.f32()}[self.kind](writer)
+        self.meta.write(writer, self)
+
+    def __repr__(self):
+        return str(f'{self.name}={self.value}')
 
 class Values:
     def __init__(self):
@@ -158,10 +160,13 @@ class Values:
         self.seeds = []
         self.values = []
 
-    def load(self, reader):
+    def load(self, reader, metastr):
         if reader.u8() != 1:
             raise Exception('Unknown version of Values')
-        reader.array(self.values, Value.load)
+        self.values = []
+        for i in range( reader.u32() ):
+            self.values.append( metastr.read_value(reader) )
+#        reader.array(self.values, Value.load)
         self.credits = reader.f32()
         self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
@@ -193,7 +198,7 @@ class Control:
         self.units = []
         for i in range( reader.u32() ):
             self.units.append( metastr.read_unit(reader) )
-        self.values.load(reader)
+        self.values.load(reader, metastr)
 
     def save(self, writer):
         writer.u8(1)

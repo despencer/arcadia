@@ -15,12 +15,8 @@ def make(args):
         ytmpl = yaml.load(tfile, Loader=yaml.Loader)
         for junit in ytmpl['control']['units']:
             actor.control.units.append( uni.units.make_unit(junit) )
-#    actor.control.creditsensor.precision = 10
-#    actor.control.birthsignal.scale = 800.0
-#    actor.control.birthsignal.threshold = -1.0
-#    actor.control.birthsignal.variation = 300
-#    actor.control.birthcredit.giveaway = 400
-#    actor.control.childmaker.variance = 400
+        for jvalue in ytmpl['control']['values']:
+            actor.control.values.values.append( uni.units.make_value(jvalue) )
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
     world.actors.append(actor)
