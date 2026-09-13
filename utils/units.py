@@ -76,12 +76,12 @@ class Value:
     def make(self, jvaluedef):
         return arcadia.Value(self, jvaluedef['name'], jvaluedef['value'])
 
-    def read(self, reader):
-        return arcadia.Value(self, reader.utf8(), self.kind.read(reader))
+    def read(self, reader, name):
+        return arcadia.Value(self, name, self.kind.read(reader))
 
     def write(self, writer, value):
-        writer.u8(self.id)
         writer.utf8(value.name)
+        writer.u8(self.id)
         self.kind.write(writer, value.value)
 
 class Structure:
@@ -115,7 +115,8 @@ class Structure:
         return self.valuetypes[ jvaluedef['type'] ].make(jvaluedef)
 
     def read_value(self, reader):
-        return self.valueids[reader.u8()].read(reader)
+        name = reader.utf8()
+        return self.valueids[reader.u8()].read(reader, name)
 
 def load(filename):
     with open(filename) as strfile:

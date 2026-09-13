@@ -38,9 +38,15 @@ impl Stored for Seed
 
 }
 
-pub enum Value
+pub enum ValueData
 {
- FValue { name: String, value: f32 }
+ FValue { value: f32 }
+}
+
+pub struct Value
+{
+ name: String,
+ value: ValueData
 }
 
 impl Value
@@ -52,9 +58,10 @@ impl Stored for Value
 {
  fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  match self
+  writer.utf8(&self.name)?;
+  match self.value
     {
-    Self::FValue {name, value} => { writer.u8(Self::FVALUE)?; writer.utf8(name)?;  writer.f32(*value) }
+    ValueData::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(value) }
     }
  }
 }
@@ -63,12 +70,13 @@ impl Factory for Value
 {
  fn load(reader: &mut Reader) -> Result<Self>
  {
-  let v = match reader.u8()?
+  let name = reader.utf8()?;
+  let value = match reader.u8()?
     {
-    Self::FVALUE => Self::FValue { name: reader.utf8()?, value: reader.f32()? },
+    Self::FVALUE => ValueData::FValue { value: reader.f32()? },
     _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown value"))
     };
-  Ok(v)
+  Ok( Value { name, value } )
  }
 }
 
