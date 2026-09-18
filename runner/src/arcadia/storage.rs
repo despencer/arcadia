@@ -1,6 +1,7 @@
 use std::collections::{VecDeque};
 use std::io::{Result, Read, Write, Error, ErrorKind};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+use crate::arcadia::values::Port;
 
 pub trait Stored
 {
@@ -23,7 +24,10 @@ impl<'a> Reader<'a>
  {
   Reader { source }
  }
-
+ pub fn bool(&mut self) -> Result<bool>
+ {
+  Ok( (self.u8()?) != 0 )
+ }
  pub fn u8(&mut self) -> Result<u8>
  {
   self.source.read_u8()
@@ -39,6 +43,10 @@ impl<'a> Reader<'a>
  pub fn f32(&mut self) -> Result<f32>
  {
   self.source.read_f32::<LittleEndian>()
+ }
+ pub fn port(&mut self) -> Result<Port>
+ {
+  Ok( Port(self.u8()? as usize) )
  }
  pub fn count(&mut self) -> Result<u32>
  {
@@ -78,7 +86,10 @@ impl<'a> Writer<'a>
  {
   Writer { target }
  }
-
+ pub fn bool(&mut self, value: bool) -> Result<()>
+ {
+  self.u8(value as u8)
+ }
  pub fn u8(&mut self, value: u8) -> Result<()>
  {
   self.target.write_u8(value)
@@ -94,6 +105,10 @@ impl<'a> Writer<'a>
  pub fn f32(&mut self, value: f32) -> Result<()>
  {
   self.target.write_f32::<LittleEndian>(value)
+ }
+ pub fn port(&mut self, value: Port) -> Result<()>
+ {
+  self.u8(value.0 as u8)
  }
  pub fn count(&mut self, value: usize) -> Result<()>
  {

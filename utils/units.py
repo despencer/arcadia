@@ -2,8 +2,9 @@ import yaml
 import arcadia
 
 class SimpleType:
-    def __init__(self, name):
+    def __init__(self, name, default):
         self.name = name
+        self.default = default
 
     def read(self, reader):
         return getattr(reader, self.name)()
@@ -23,12 +24,25 @@ class Member:
         m.name = jm['name']
         return m
 
+class Port:
+    def __init__(self):
+        self.name = ''
+        self.value = None
+
+    @classmethod
+    def load(cls, jp, structure):
+        p = cls()
+        p.name = jp['name']
+        p.value = structure.get_value(jp['type'])
+        return p
+
 class Unit:
     def __init__(self):
         self.id = 0
         self.version = 1
         self.name = ''
         self.members = []
+        self.ports = []
 
     @classmethod
     def load(cls, junit, structure):
@@ -37,6 +51,9 @@ class Unit:
         unit.name = junit['name']
         for jm in junit['data']:
             unit.members.append( Member.load(jm, structure) )
+        if 'ports' in junit:
+            for jp in junit['ports']:
+                unit.ports.append( Port.load(jp, structure) )
         return unit
 
     def make(self, junitdef):
@@ -53,6 +70,8 @@ class Unit:
         unit = arcadia.Unit(self)
         for m in self.members:
             setattr(unit, m.name, m.kind.read(reader) )
+        for p in self.ports:
+            unit.ports.append( reader.u8() )
         return unit
 
     def write(self, writer, unit):
@@ -60,6 +79,8 @@ class Unit:
         writer.u8(self.version)
         for m in self.members:
             m.kind.write(writer, getattr(unit, m.name))
+        for p in unit.ports:
+            writer.u8(p)
 
 class Value:
     def __init__(self):
@@ -73,8 +94,8 @@ class Value:
         v.kind = structure.get_kind(jv['type'])
         return v
 
-    def make(self, jvaluedef):
-        return arcadia.Value(self, jvaluedef['name'], jvaluedef['value'])
+    def make(self, name):
+        return arcadia.Value(self, name, self.kind.default)
 
     def read(self, reader, name):
         return arcadia.Value(self, name, self.kind.read(reader))
@@ -86,7 +107,7 @@ class Value:
 
 class Structure:
     def __init__(self):
-        self.kinds = { 'u32':SimpleType('u32'), 'f32':SimpleType('f32') }
+        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}
@@ -95,24 +116,29 @@ class Structure:
     def get_kind(self, typename):
         return self.kinds[typename]
 
+    def get_value(self, typename):
+        return self.valuetypes[typename]
+
     def load(self, jstr):
-        for junit in jstr['units']:
-            unit = Unit.load(junit, self)
-            self.unitids[unit.id] = unit
-            self.unitnames[unit.name] = unit
         for jvalue in jstr['values']:
             value = Value.load(jvalue, self)
             self.valueids[value.id] = value
             self.valuetypes[value.kind.name] = value
+        for junit in jstr['units']:
+            unit = Unit.load(junit, self)
+            self.unitids[unit.id] = unit
+            self.unitnames[unit.name] = unit
 
-    def make_unit(self, junitdef):
-        return self.unitnames[ junitdef['type'] ].make(junitdef)
+    def make_unit(self, junitdef, control):
+        unit = self.unitnames[ junitdef['type'] ].make(junitdef)
+        control.units.append(unit)
+        for port in self.unitnames[ junitdef['type'] ].ports:
+            if not control.has_value(port.name):
+                control.values.values.append(port.value.make(port.name))
+            unit.ports.append(control.values.get_port(port.name))
 
     def read_unit(self, reader):
         return self.unitids[reader.u16()].read(reader)
-
-    def make_value(self, jvaluedef):
-        return self.valuetypes[ jvaluedef['type'] ].make(jvaluedef)
 
     def read_value(self, reader):
         name = reader.utf8()

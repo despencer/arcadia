@@ -2,7 +2,7 @@ use std::io::{Result, Read, Write, Error, ErrorKind};
 use std::collections::HashMap;
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
-use crate::arcadia::values::{Seed, Values};
+use crate::arcadia::values::{Seed, Values, ValueData, Port};
 use crate::arcadia::storage::{Reader,Writer};
 
 pub struct Sampler
@@ -84,13 +84,14 @@ trait Unit
  fn save(&self, target: &mut Writer) -> Result<()>;
  fn tick(&self, units: &Units, values: &mut Values, body: &mut Body);
  fn blueprints(&self) -> BluePrint;
- fn make(&mut self, _bp: &BluePrint) -> Result<()>;
+ fn make(&mut self, _bp: &BluePrint, _values: &mut Values) -> Result<()>;
 }
 
 #[derive(Default)]
 pub struct CreditSensor
 {
- variator: Variator
+ variator: Variator,
+ credits: Port
 }
 
 impl Unit for CreditSensor
@@ -101,18 +102,20 @@ impl Unit for CreditSensor
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
  {
   self.variator.set( reader.u32()? );
+  self.credits = reader.port()?;
   Ok( () )
  }
 
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.variator.precision)?;
+  target.port(self.credits)?;
   Ok(())
  }
 
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
-  values.credits = self.variator.variate(body.get_credits() as f32);
+  values.set(self.credits, ValueData::from( self.variator.variate(body.get_credits() as f32) ));
  }
 
  fn blueprints(&self) -> BluePrint
@@ -120,9 +123,10 @@ impl Unit for CreditSensor
   BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.variator.precision) ])
  }
 
- fn make(&mut self, bp: &BluePrint) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
+  self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
   Ok(())
  }
 }
@@ -132,14 +136,15 @@ pub struct BirthSignal
  scale: f32,
  threshold: f32,
  variation: u32,
- selector: Normal<f32>
+ selector: Normal<f32>,
+ credits: Port
 }
 
 impl Default for BirthSignal
 {
  fn default() -> Self
  {
-  BirthSignal { scale: 0.0, threshold: 0.0, variation:0, selector: Normal::new(0.0, 1.0).unwrap() }
+  BirthSignal { scale: 0.0, threshold: 0.0, variation:0, selector: Normal::new(0.0, 1.0).unwrap(), credits:Port(0) }
  }
 }
 
@@ -154,6 +159,7 @@ impl Unit for BirthSignal
   self.threshold = reader.f32()?;
   self.variation = reader.u32()?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
+  self.credits = reader.port()?;
   Ok( () )
  }
 
@@ -162,13 +168,15 @@ impl Unit for BirthSignal
   target.f32(self.scale)?;
   target.f32(self.threshold)?;
   target.u32(self.variation)?;
+  target.port(self.credits)?;
   Ok(())
  }
 
  fn tick(&self, _units: &Units, values: &mut Values, _body: &mut Body)
  {
   let mut rng = rand::thread_rng();
-  let value = ( values.credits / self.scale) + self.threshold;
+  let ValueData::FValue{ value: credits} = values.get(self.credits) else { panic!("Wrong data type for credits") };
+  let value = (credits / self.scale) + self.threshold;
   values.birth = self.selector.sample(&mut rng) < value;
  }
 
@@ -177,12 +185,13 @@ impl Unit for BirthSignal
   BluePrint::new(Units::BIRTH_SIGNAL, vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ] )
  }
 
- fn make(&mut self, bp: &BluePrint) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.scale = bp.get_f32(0)?;
   self.threshold = bp.get_f32(1)?;
   self.variation = bp.get_u32(2)?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
+  self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
   Ok( () )
  }
 }
@@ -219,7 +228,7 @@ impl Unit for BirthCredit
  {
   BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
  }
- fn make(&mut self, bp: &BluePrint) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _values: &mut Values) -> Result<()>
  {
   self.giveaway.set( bp.get_u32(0)? );
   Ok( () )
@@ -261,7 +270,7 @@ impl Unit for ChildMaker
  {
   BluePrint::new(Units::CHILD_MAKER, vec![ BluePrint::from(self.variator.precision) ])
  }
- fn make(&mut self, bp: &BluePrint) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _values: &mut Values) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
   Ok( () )
@@ -299,7 +308,7 @@ impl Unit for Spawner
  {
   BluePrint::new(Units::SPAWNER, vec![ ])
  }
- fn make(&mut self, _bp: &BluePrint) -> Result<()>
+ fn make(&mut self, _bp: &BluePrint, _values: &mut Values) -> Result<()>
  {
   Ok(())
  }
@@ -480,12 +489,12 @@ impl Units
    Ok(())
  }
 
- pub fn new(&mut self, bp: &BluePrint) -> Result<()>
+ pub fn new(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   for ubp in bp.get_collection()?
       {
       let mut aunit = self.factory.get(&ubp.get_unit()?).expect("Unknown unit")();
-      aunit.make(ubp)?;
+      aunit.make(ubp, values)?;
       self.units.push(aunit);
       }
 
@@ -532,7 +541,7 @@ impl Control
 
  pub fn new(&mut self, bp: &BluePrint)
  {
-  self.units.new(bp).unwrap();
+  self.units.new(bp, &mut self.values).unwrap();
  }
 
  pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>

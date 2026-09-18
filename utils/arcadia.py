@@ -154,7 +154,6 @@ class Value:
 
 class Values:
     def __init__(self):
-        self.credits = 0.0
         self.birth = False
         self.birthcredits = []
         self.seeds = []
@@ -166,8 +165,6 @@ class Values:
         self.values = []
         for i in range( reader.u32() ):
             self.values.append( metastr.read_value(reader) )
-#        reader.array(self.values, Value.load)
-        self.credits = reader.f32()
         self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
         reader.array(self.seeds, Seed.load)
@@ -175,14 +172,26 @@ class Values:
     def save(self, writer):
         writer.u8(1)
         writer.array(self.values, Value.save)
-        writer.f32(self.credits)
         writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)
         writer.array(self.seeds, Seed.save)
 
+    def has_value(self, name):
+        for v in self.values:
+            if v.name == name:
+                return True
+        return False
+
+    def get_port(self, name):
+        for i,v in enumerate(self.values):
+            if v.name == name:
+                return i
+        return None
+
 class Unit:
     def __init__(self, meta):
         self.meta = meta
+        self.ports = []
 
     def save(self, writer):
         self.meta.write(writer, self)
@@ -206,6 +215,9 @@ class Control:
         for u in self.units:
             u.save(writer)
         self.values.save(writer)
+
+    def has_value(self, name):
+        return self.values.has_value(name)
 
 class Actor:
     def __init__(self):

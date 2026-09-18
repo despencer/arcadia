@@ -38,10 +38,20 @@ impl Stored for Seed
 
 }
 
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Port(pub usize);
+
 pub enum ValueData
 {
- FValue { value: f32 }
+ FValue { value: f32 },
+ BValue { value: bool }
 }
+
+impl From<f32> for ValueData
+{
+ fn from(value: f32) -> Self { Self::FValue { value: value } }
+}
+
 
 pub struct Value
 {
@@ -52,6 +62,7 @@ pub struct Value
 impl Value
 {
  const FVALUE: u8 = 1;
+ const BVALUE: u8 = 2;
 }
 
 impl Stored for Value
@@ -62,6 +73,7 @@ impl Stored for Value
   match self.value
     {
     ValueData::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(value) }
+    ValueData::BValue {value} => { writer.u8(Self::FVALUE)?; writer.bool(value) }
     }
  }
 }
@@ -74,6 +86,7 @@ impl Factory for Value
   let value = match reader.u8()?
     {
     Self::FVALUE => ValueData::FValue { value: reader.f32()? },
+    Self::BVALUE => ValueData::BValue { value: reader.bool()? },
     _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown value"))
     };
   Ok( Value { name, value } )
@@ -84,7 +97,6 @@ impl Factory for Value
 pub struct Values
 {
  pub values: Vec<Value>,
- pub credits: f32,
  pub birth: bool,
  pub birthcredits: VecDeque<Seed>,
  pub seeds: VecDeque<Seed>,
@@ -99,7 +111,6 @@ impl Values
   if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
   reader.vec(&mut self.values)?;
-  self.credits = reader.f32()?;
   self.birth = (reader.u8()?) != 0;
   reader.vecdeque(&mut self.birthcredits)?;
   reader.vecdeque(&mut self.seeds)
@@ -109,9 +120,29 @@ impl Values
  {
   writer.u8(self.version())?;
   writer.vec(&self.values)?;
-  writer.f32(self.credits)?;
   writer.u8(self.birth as u8)?;
   writer.vecdeque(&self.birthcredits)?;
   writer.vecdeque(&self.seeds)
+ }
+
+ pub fn make(&mut self, name: &String, value: ValueData) -> Port
+ {
+  for i in 0..self.values.len()
+    {
+    if self.values[i].name == *name
+       { return Port(i); }
+    }
+  self.values.push( Value { name: name.clone(), value } );
+  Port(self.values.len()-1)
+ }
+
+ pub fn get(&self, index:Port) -> &ValueData
+ {
+  &self.values[index.0].value
+ }
+
+ pub fn set(&mut self, index:Port, value:ValueData)
+ {
+  self.values[index.0].value = value;
  }
 }

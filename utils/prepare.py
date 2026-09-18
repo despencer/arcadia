@@ -14,9 +14,7 @@ def make(args):
     with open(args.template) as tfile:
         ytmpl = yaml.load(tfile, Loader=yaml.Loader)
         for junit in ytmpl['control']['units']:
-            actor.control.units.append( uni.units.make_unit(junit) )
-        for jvalue in ytmpl['control']['values']:
-            actor.control.values.values.append( uni.units.make_value(jvalue) )
+            uni.units.make_unit(junit, actor.control)
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
     world.actors.append(actor)

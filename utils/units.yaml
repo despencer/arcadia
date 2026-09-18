@@ -4,6 +4,9 @@ units:
      data:
        - name: precision
          type: u32
+     ports:
+       - name: credits
+         type: f32
    - name: BirthSignal
      id: 3
      data:
@@ -13,6 +16,9 @@ units:
          type: f32
        - name: variation
          type: u32
+     ports:
+       - name: credits
+         type: f32
    - name: BirthCredit
      id: 4
      data:
