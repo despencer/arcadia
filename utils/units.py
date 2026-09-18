@@ -107,7 +107,7 @@ class Value:
 
 class Structure:
     def __init__(self):
-        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0) }
+        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}

@@ -137,14 +137,15 @@ pub struct BirthSignal
  threshold: f32,
  variation: u32,
  selector: Normal<f32>,
- credits: Port
+ credits: Port,
+ birth: Port
 }
 
 impl Default for BirthSignal
 {
  fn default() -> Self
  {
-  BirthSignal { scale: 0.0, threshold: 0.0, variation:0, selector: Normal::new(0.0, 1.0).unwrap(), credits:Port(0) }
+  BirthSignal { scale: 0.0, threshold: 0.0, variation:0, selector: Normal::new(0.0, 1.0).unwrap(), credits:Port(0), birth:Port(0) }
  }
 }
 
@@ -160,6 +161,7 @@ impl Unit for BirthSignal
   self.variation = reader.u32()?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
   self.credits = reader.port()?;
+  self.birth = reader.port()?;
   Ok( () )
  }
 
@@ -169,6 +171,7 @@ impl Unit for BirthSignal
   target.f32(self.threshold)?;
   target.u32(self.variation)?;
   target.port(self.credits)?;
+  target.port(self.birth)?;
   Ok(())
  }
 
@@ -177,7 +180,7 @@ impl Unit for BirthSignal
   let mut rng = rand::thread_rng();
   let ValueData::FValue{ value: credits} = values.get(self.credits) else { panic!("Wrong data type for credits") };
   let value = (credits / self.scale) + self.threshold;
-  values.birth = self.selector.sample(&mut rng) < value;
+  values.set(self.birth, ValueData::from( self.selector.sample(&mut rng) < value ));
  }
 
  fn blueprints(&self) -> BluePrint
@@ -192,6 +195,7 @@ impl Unit for BirthSignal
   self.variation = bp.get_u32(2)?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
   self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
+  self.birth = values.make(&"birth".to_string(), ValueData::from(false));
   Ok( () )
  }
 }
@@ -199,7 +203,8 @@ impl Unit for BirthSignal
 #[derive(Default)]
 pub struct BirthCredit
 {
- giveaway: Sampler
+ giveaway: Sampler,
+ birth: Port
 }
 
 impl Unit for BirthCredit
@@ -210,27 +215,35 @@ impl Unit for BirthCredit
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
  {
   self.giveaway.set( reader.u32()? );
+  self.birth = reader.port()?;
   Ok(())
  }
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.giveaway.nominal)?;
+  target.port(self.birth)?;
   Ok(())
  }
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
-  let mut giveaway = self.giveaway.sample();
-  giveaway = body.take_credits(giveaway);
-  if giveaway > 0
-     { values.birthcredits.push_back( Seed::new(giveaway) ) }
+  let ValueData::BValue{ value: birth} = values.get(self.birth) else { panic!("Wrong data type for birth") };
+  if *birth
+     {
+     values.set(self.birth, ValueData::from( false ));
+     let mut giveaway = self.giveaway.sample();
+     giveaway = body.take_credits(giveaway);
+     if giveaway > 0
+        { values.birthcredits.push_back( Seed::new(giveaway) ) }
+     }
  }
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
  }
- fn make(&mut self, bp: &BluePrint, _values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.giveaway.set( bp.get_u32(0)? );
+  self.birth = values.make(&"birth".to_string(), ValueData::from(false));
   Ok( () )
  }
 }

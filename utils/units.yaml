@@ -19,11 +19,16 @@ units:
      ports:
        - name: credits
          type: f32
+       - name: birth
+         type: bool
    - name: BirthCredit
      id: 4
      data:
        - name: giveaway
          type: u32
+     ports:
+       - name: birth
+         type: bool
    - name: ChildMaker
      id: 5
      data:
@@ -35,3 +40,5 @@ units:
 values:
    - type: f32
      id: 1
+   - type: bool
+     id: 2

@@ -52,6 +52,10 @@ impl From<f32> for ValueData
  fn from(value: f32) -> Self { Self::FValue { value: value } }
 }
 
+impl From<bool> for ValueData
+{
+ fn from(value: bool) -> Self { Self::BValue { value: value } }
+}
 
 pub struct Value
 {
@@ -73,7 +77,7 @@ impl Stored for Value
   match self.value
     {
     ValueData::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(value) }
-    ValueData::BValue {value} => { writer.u8(Self::FVALUE)?; writer.bool(value) }
+    ValueData::BValue {value} => { writer.u8(Self::BVALUE)?; writer.bool(value) }
     }
  }
 }
@@ -97,7 +101,6 @@ impl Factory for Value
 pub struct Values
 {
  pub values: Vec<Value>,
- pub birth: bool,
  pub birthcredits: VecDeque<Seed>,
  pub seeds: VecDeque<Seed>,
 }
@@ -111,7 +114,6 @@ impl Values
   if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
   reader.vec(&mut self.values)?;
-  self.birth = (reader.u8()?) != 0;
   reader.vecdeque(&mut self.birthcredits)?;
   reader.vecdeque(&mut self.seeds)
  }
@@ -120,7 +122,6 @@ impl Values
  {
   writer.u8(self.version())?;
   writer.vec(&self.values)?;
-  writer.u8(self.birth as u8)?;
   writer.vecdeque(&self.birthcredits)?;
   writer.vecdeque(&self.seeds)
  }

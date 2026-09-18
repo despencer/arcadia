@@ -30,7 +30,7 @@ class Reader:
     def f32(self):
         return struct.unpack('<f', self.fs.read(4))[0]
 
-    def bl(self):
+    def bool(self):
         return (self.u8() != 0)
 
     def utf8(self):
@@ -63,7 +63,7 @@ class Writer:
     def f32(self, value):
         return self.fs.write( struct.pack('<f', value) )
 
-    def bl(self, value):
+    def bool(self, value):
         if value:
             self.u8(1)
         else:
@@ -154,7 +154,6 @@ class Value:
 
 class Values:
     def __init__(self):
-        self.birth = False
         self.birthcredits = []
         self.seeds = []
         self.values = []
@@ -165,14 +164,12 @@ class Values:
         self.values = []
         for i in range( reader.u32() ):
             self.values.append( metastr.read_value(reader) )
-        self.birth = reader.bl()
         reader.array(self.birthcredits, Seed.load)
         reader.array(self.seeds, Seed.load)
 
     def save(self, writer):
         writer.u8(1)
         writer.array(self.values, Value.save)
-        writer.bl(self.birth)
         writer.array(self.birthcredits, Seed.save)
         writer.array(self.seeds, Seed.save)
 
