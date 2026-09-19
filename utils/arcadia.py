@@ -154,7 +154,6 @@ class Value:
 
 class Values:
     def __init__(self):
-        self.birthcredits = []
         self.seeds = []
         self.values = []
 
@@ -164,13 +163,11 @@ class Values:
         self.values = []
         for i in range( reader.u32() ):
             self.values.append( metastr.read_value(reader) )
-        reader.array(self.birthcredits, Seed.load)
         reader.array(self.seeds, Seed.load)
 
     def save(self, writer):
         writer.u8(1)
         writer.array(self.values, Value.save)
-        writer.array(self.birthcredits, Seed.save)
         writer.array(self.seeds, Seed.save)
 
     def has_value(self, name):

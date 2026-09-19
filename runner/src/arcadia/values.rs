@@ -44,7 +44,8 @@ pub struct Port(pub usize);
 pub enum ValueData
 {
  FValue { value: f32 },
- BValue { value: bool }
+ BValue { value: bool },
+ Seeds { value: VecDeque<Seed> }
 }
 
 impl From<f32> for ValueData
@@ -57,6 +58,11 @@ impl From<bool> for ValueData
  fn from(value: bool) -> Self { Self::BValue { value: value } }
 }
 
+impl ValueData
+{
+ pub fn new_seeds() -> Self { Self::Seeds { value: VecDeque::new() } }
+}
+
 pub struct Value
 {
  name: String,
@@ -65,8 +71,9 @@ pub struct Value
 
 impl Value
 {
- const FVALUE: u8 = 1;
- const BVALUE: u8 = 2;
+ const FLOAT: u8 = 1;
+ const BOOL: u8 = 2;
+ const SEEDS: u8 = 3;
 }
 
 impl Stored for Value
@@ -74,10 +81,11 @@ impl Stored for Value
  fn save(&self, writer: &mut Writer) -> Result<()>
  {
   writer.utf8(&self.name)?;
-  match self.value
+  match &self.value
     {
-    ValueData::FValue {value} => { writer.u8(Self::FVALUE)?; writer.f32(value) }
-    ValueData::BValue {value} => { writer.u8(Self::BVALUE)?; writer.bool(value) }
+    ValueData::FValue {value} => { writer.u8(Self::FLOAT)?; writer.f32(*value) }
+    ValueData::BValue {value} => { writer.u8(Self::BOOL)?; writer.bool(*value) }
+    ValueData::Seeds {value} => { writer.u8(Self::SEEDS)?; writer.vecdeque(value) }
     }
  }
 }
@@ -89,8 +97,9 @@ impl Factory for Value
   let name = reader.utf8()?;
   let value = match reader.u8()?
     {
-    Self::FVALUE => ValueData::FValue { value: reader.f32()? },
-    Self::BVALUE => ValueData::BValue { value: reader.bool()? },
+    Self::FLOAT => ValueData::FValue { value: reader.f32()? },
+    Self::BOOL => ValueData::BValue { value: reader.bool()? },
+    Self::SEEDS => { let mut seeds: VecDeque<Seed> = VecDeque::new(); reader.vecdeque(&mut seeds)?; ValueData::Seeds { value: seeds } },
     _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown value"))
     };
   Ok( Value { name, value } )
@@ -101,7 +110,6 @@ impl Factory for Value
 pub struct Values
 {
  pub values: Vec<Value>,
- pub birthcredits: VecDeque<Seed>,
  pub seeds: VecDeque<Seed>,
 }
 
@@ -114,7 +122,6 @@ impl Values
   if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
   reader.vec(&mut self.values)?;
-  reader.vecdeque(&mut self.birthcredits)?;
   reader.vecdeque(&mut self.seeds)
  }
 
@@ -122,7 +129,6 @@ impl Values
  {
   writer.u8(self.version())?;
   writer.vec(&self.values)?;
-  writer.vecdeque(&self.birthcredits)?;
   writer.vecdeque(&self.seeds)
  }
 
@@ -140,6 +146,11 @@ impl Values
  pub fn get(&self, index:Port) -> &ValueData
  {
   &self.values[index.0].value
+ }
+
+ pub fn get_mut(&mut self, index:Port) -> &mut ValueData
+ {
+  &mut self.values[index.0].value
  }
 
  pub fn set(&mut self, index:Port, value:ValueData)

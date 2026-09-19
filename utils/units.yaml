@@ -29,11 +29,16 @@ units:
      ports:
        - name: birth
          type: bool
+       - name: birthcredits
+         type: seeds
    - name: ChildMaker
      id: 5
      data:
        - name: variance
          type: u32
+     ports:
+       - name: birthcredits
+         type: seeds
    - name: Spawner
      id: 6
      data: []
@@ -42,3 +47,5 @@ values:
      id: 1
    - type: bool
      id: 2
+   - type: seeds
+     id: 3

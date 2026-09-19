@@ -12,6 +12,31 @@ class SimpleType:
     def write(self, writer, value):
         getattr(writer, self.name)(value)
 
+class CommonType:
+    def __init__(self, name, aclass):
+        self.name = name
+        self.aclass = aclass
+
+    def read(self, reader):
+        return self.aclass.load(reader)
+
+    def write(self, writer, value):
+        return value.save(writer)
+
+class ArrayType:
+    def __init__(self, name, itemtype):
+        self.name = name
+        self.default = []
+        self.itemtype = itemtype
+
+    def read(self, reader):
+        result = []
+        reader.array(result, self.itemtype.read)
+        return result
+
+    def write(self, writer, value):
+        writer.array(value, self.itemtype.read)
+
 class Member:
     def __init__(self):
         self.kind = None
@@ -107,7 +132,8 @@ class Value:
 
 class Structure:
     def __init__(self):
-        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False) }
+        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
+                       'seeds': ArrayType('seeds', CommonType('Seed', arcadia.Seed)) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}

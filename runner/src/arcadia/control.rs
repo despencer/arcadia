@@ -1,5 +1,5 @@
 use std::io::{Result, Read, Write, Error, ErrorKind};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
 use crate::arcadia::values::{Seed, Values, ValueData, Port};
@@ -204,7 +204,8 @@ impl Unit for BirthSignal
 pub struct BirthCredit
 {
  giveaway: Sampler,
- birth: Port
+ birth: Port,
+ birthcredits: Port
 }
 
 impl Unit for BirthCredit
@@ -216,12 +217,14 @@ impl Unit for BirthCredit
  {
   self.giveaway.set( reader.u32()? );
   self.birth = reader.port()?;
+  self.birthcredits = reader.port()?;
   Ok(())
  }
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.giveaway.nominal)?;
   target.port(self.birth)?;
+  target.port(self.birthcredits)?;
   Ok(())
  }
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
@@ -233,7 +236,10 @@ impl Unit for BirthCredit
      let mut giveaway = self.giveaway.sample();
      giveaway = body.take_credits(giveaway);
      if giveaway > 0
-        { values.birthcredits.push_back( Seed::new(giveaway) ) }
+        {
+        let &mut ValueData::Seeds { value: ref mut birthcredits} = values.get_mut(self.birthcredits) else { panic!("Wrong data type for birthcredits") };
+        birthcredits.push_back( Seed::new(giveaway) );
+        }
      }
  }
  fn blueprints(&self) -> BluePrint
@@ -244,6 +250,7 @@ impl Unit for BirthCredit
  {
   self.giveaway.set( bp.get_u32(0)? );
   self.birth = values.make(&"birth".to_string(), ValueData::from(false));
+  self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
   Ok( () )
  }
 }
@@ -251,7 +258,8 @@ impl Unit for BirthCredit
 #[derive(Default)]
 pub struct ChildMaker
 {
- variator: Variator
+ variator: Variator,
+ birthcredits: Port
 }
 
 impl Unit for ChildMaker
@@ -262,18 +270,26 @@ impl Unit for ChildMaker
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
  {
   self.variator.set( reader.u32()? );
+  self.birthcredits = reader.port()?;
   Ok(()) 
  }
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.variator.precision)?;
+  target.port(self.birthcredits)?;
   Ok(())
  }
  fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
  {
-  while values.birthcredits.len() > 0
+  let &mut ValueData::Seeds { value: ref mut birthcredits} = values.get_mut(self.birthcredits) else { panic!("Wrong data type for birthcredits") };
+  let mut buf : VecDeque<Seed> = VecDeque::new();
+
+  while birthcredits.len() > 0
+     { buf.push_back( birthcredits.pop_front().unwrap() ); }
+
+  while buf.len() > 0
      {
-     let mut seed = values.birthcredits.pop_front().unwrap();
+     let mut seed = buf.pop_front().unwrap();
      seed.blueprints = units.blueprints();
      seed.blueprints.variate(&self.variator);
      values.seeds.push_back(seed);
@@ -283,9 +299,10 @@ impl Unit for ChildMaker
  {
   BluePrint::new(Units::CHILD_MAKER, vec![ BluePrint::from(self.variator.precision) ])
  }
- fn make(&mut self, bp: &BluePrint, _values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
+  self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
   Ok( () )
  }
 
