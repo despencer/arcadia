@@ -110,7 +110,6 @@ impl Factory for Value
 pub struct Values
 {
  pub values: Vec<Value>,
- pub seeds: VecDeque<Seed>,
 }
 
 impl Values
@@ -121,15 +120,13 @@ impl Values
  {
   if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
-  reader.vec(&mut self.values)?;
-  reader.vecdeque(&mut self.seeds)
+  reader.vec(&mut self.values)
  }
 
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
   writer.u8(self.version())?;
-  writer.vec(&self.values)?;
-  writer.vecdeque(&self.seeds)
+  writer.vec(&self.values)
  }
 
  pub fn make(&mut self, name: &String, value: ValueData) -> Port

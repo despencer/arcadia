@@ -154,7 +154,6 @@ class Value:
 
 class Values:
     def __init__(self):
-        self.seeds = []
         self.values = []
 
     def load(self, reader, metastr):
@@ -163,12 +162,10 @@ class Values:
         self.values = []
         for i in range( reader.u32() ):
             self.values.append( metastr.read_value(reader) )
-        reader.array(self.seeds, Seed.load)
 
     def save(self, writer):
         writer.u8(1)
         writer.array(self.values, Value.save)
-        writer.array(self.seeds, Seed.save)
 
     def has_value(self, name):
         for v in self.values:

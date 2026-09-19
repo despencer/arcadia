@@ -39,9 +39,14 @@ units:
      ports:
        - name: birthcredits
          type: seeds
+       - name: seeds
+         type: seeds
    - name: Spawner
      id: 6
      data: []
+     ports:
+       - name: seeds
+         type: seeds
 values:
    - type: f32
      id: 1

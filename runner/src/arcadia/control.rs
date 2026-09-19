@@ -259,7 +259,8 @@ impl Unit for BirthCredit
 pub struct ChildMaker
 {
  variator: Variator,
- birthcredits: Port
+ birthcredits: Port,
+ seeds: Port
 }
 
 impl Unit for ChildMaker
@@ -271,12 +272,14 @@ impl Unit for ChildMaker
  {
   self.variator.set( reader.u32()? );
   self.birthcredits = reader.port()?;
+  self.seeds = reader.port()?;
   Ok(()) 
  }
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.variator.precision)?;
   target.port(self.birthcredits)?;
+  target.port(self.seeds)?;
   Ok(())
  }
  fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
@@ -287,12 +290,15 @@ impl Unit for ChildMaker
   while birthcredits.len() > 0
      { buf.push_back( birthcredits.pop_front().unwrap() ); }
 
+  let &mut ValueData::Seeds { value: ref mut seeds} = values.get_mut(self.seeds) else { panic!("Wrong data type for seeds") };
+
   while buf.len() > 0
      {
      let mut seed = buf.pop_front().unwrap();
      seed.blueprints = units.blueprints();
      seed.blueprints.variate(&self.variator);
-     values.seeds.push_back(seed);
+//     values.seeds.push_back(seed);
+     seeds.push_back(seed);
      }
  }
  fn blueprints(&self) -> BluePrint
@@ -303,6 +309,7 @@ impl Unit for ChildMaker
  {
   self.variator.set( bp.get_u32(0)? );
   self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
+  self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
   Ok( () )
  }
 
@@ -311,6 +318,7 @@ impl Unit for ChildMaker
 #[derive(Default)]
 pub struct Spawner
 {
+ seeds: Port
 }
 
 impl Unit for Spawner
@@ -318,19 +326,23 @@ impl Unit for Spawner
  fn utype(&self) -> u16 { Units::SPAWNER }
  fn version(&self) -> u8 { 1 }
 
- fn load(&mut self, _version: u8, _reader: &mut Reader) -> Result<()>
+ fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
  {
+  self.seeds = reader.port()?;
   Ok(()) 
  }
- fn save(&self, _target: &mut Writer) -> Result<()>
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
+  target.port(self.seeds)?;
   Ok(())
  }
  fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
  {
-  while values.seeds.len() > 0
+  let &mut ValueData::Seeds { value: ref mut seeds} = values.get_mut(self.seeds) else { panic!("Wrong data type for seeds") };
+
+  while seeds.len() > 0
      {
-     let seed = values.seeds.pop_front().unwrap();
+     let seed = seeds.pop_front().unwrap();
      body.birth(seed);
      }
  }
@@ -338,8 +350,9 @@ impl Unit for Spawner
  {
   BluePrint::new(Units::SPAWNER, vec![ ])
  }
- fn make(&mut self, _bp: &BluePrint, _values: &mut Values) -> Result<()>
+ fn make(&mut self, _bp: &BluePrint, values: &mut Values) -> Result<()>
  {
+  self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
   Ok(())
  }
 }
