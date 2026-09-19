@@ -1,4 +1,4 @@
-use std::io::{Result, Read, Write, Error, ErrorKind};
+use std::io::{Result, Error, ErrorKind};
 use std::collections::{HashMap, VecDeque};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
@@ -587,22 +587,20 @@ impl Control
   self.units.new(bp, &mut self.values).unwrap();
  }
 
- pub fn load_1(&mut self, source: &mut dyn Read) -> Result<()>
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
-   let mut reader = Reader::new(source);
    if reader.u8()? > self.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown control version")); }
-   self.units.load(&mut reader)?;
-   self.values.load(&mut reader)?;
+   self.units.load(reader)?;
+   self.values.load(reader)?;
    Ok(())
  }
 
- pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   let mut writer = Writer::new(target);
    writer.u8(self.version())?;
-   self.units.save(&mut writer)?;
-   self.values.save(&mut writer)?;
+   self.units.save(writer)?;
+   self.values.save(writer)?;
    Ok(())
  }
 }

@@ -40,6 +40,10 @@ impl<'a> Reader<'a>
  {
   self.source.read_u32::<LittleEndian>()
  }
+ pub fn u64(&mut self) -> Result<u64>
+ {
+  self.source.read_u64::<LittleEndian>()
+ }
  pub fn f32(&mut self) -> Result<f32>
  {
   self.source.read_f32::<LittleEndian>()
@@ -101,6 +105,10 @@ impl<'a> Writer<'a>
  pub fn u32(&mut self, value: u32) -> Result<()>
  {
   self.target.write_u32::<LittleEndian>(value)
+ }
+ pub fn u64(&mut self, value: u64) -> Result<()>
+ {
+  self.target.write_u64::<LittleEndian>(value)
  }
  pub fn f32(&mut self, value: f32) -> Result<()>
  {

@@ -1,8 +1,8 @@
 use std::io::{Result, Read, Write};
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::dispatcher::Dispatcher;
 use crate::arcadia::control::Control;
 use crate::arcadia::values::Seed;
+use crate::arcadia::storage::{Reader,Writer};
 
 #[derive(Default)]
 pub enum ActorLifecycle
@@ -111,27 +111,29 @@ impl Actor
   actor
  }
 
- pub fn load_1<R:Read>(source: &mut R) -> Result<Self>
+ pub fn load_1(source: &mut dyn Read) -> Result<Self>
  {
    let mut actor = Actor::default();
-   actor.body.id = source.read_u64::<LittleEndian>()?;
-   actor.body.home = source.read_u64::<LittleEndian>()?;
+   let mut reader = Reader::new(source);
+   actor.body.id = reader.u64()?;
+   actor.body.home = reader.u64()?;
    log::debug!("Actor {} loading", actor.body.id);
-   actor.body.credits = source.read_u32::<LittleEndian>()?;
-   actor.body.reserve = source.read_u32::<LittleEndian>()?;
-   actor.control.load_1(source)?;
+   actor.body.credits = reader.u32()?;
+   actor.body.reserve = reader.u32()?;
+   actor.control.load(&mut reader)?;
    log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
  }
 
- pub fn save_1<W:Write>(&self, target: &mut W) -> Result<()>
+ pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
  {
    log::debug!("Saving actor {}", self.body.id);
-   target.write_u64::<LittleEndian>(self.body.id)?;
-   target.write_u64::<LittleEndian>(self.body.home)?;
-   target.write_u32::<LittleEndian>(self.body.credits)?;
-   target.write_u32::<LittleEndian>(self.body.reserve)?;
-   self.control.save_1(target)?;
+   let mut writer = Writer::new(target);
+   writer.u64(self.body.id)?;
+   writer.u64(self.body.home)?;
+   writer.u32(self.body.credits)?;
+   writer.u32(self.body.reserve)?;
+   self.control.save(&mut writer)?;
    Ok(())
  }
 }

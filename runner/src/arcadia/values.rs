@@ -1,19 +1,20 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::{VecDeque};
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
-use crate::arcadia::control::{BluePrint};
+use crate::arcadia::control::{BluePrint, Control};
 
 pub struct Seed
 {
  pub credits: u32,
- pub blueprints: BluePrint
+ pub blueprints: BluePrint,
+ pub seed: Control
 }
 
 impl Seed
 {
  pub fn new(credits: u32) -> Seed
  {
-  Seed { credits: credits, blueprints: BluePrint::default() }
+  Seed { credits: credits, blueprints: BluePrint::default(), seed: Control::default() }
  }
 }
 
@@ -23,7 +24,8 @@ impl Factory for Seed
  {
   let credits = source.u32()?;
   let bp = BluePrint::load(source)?;
-  Ok( Seed { credits: credits, blueprints:bp } )
+  let mut control = Control::default(); control.load(source)?;
+  Ok( Seed { credits: credits, blueprints:bp, seed: control } )
  }
 }
 
@@ -33,7 +35,7 @@ impl Stored for Seed
  {
   target.u32(self.credits)?;
   self.blueprints.save(target)?;
-  Ok( () )
+  self.seed.save(target)
  }
 
 }

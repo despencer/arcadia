@@ -13,12 +13,13 @@ class SimpleType:
         getattr(writer, self.name)(value)
 
 class CommonType:
-    def __init__(self, name, aclass):
+    def __init__(self, name, metastr, aclass):
         self.name = name
         self.aclass = aclass
+        self.metastr = metastr
 
     def read(self, reader):
-        return self.aclass.load(reader)
+        return self.aclass.load(metastr, reader)
 
     def write(self, writer, value):
         return value.save(writer)
@@ -133,7 +134,7 @@ class Value:
 class Structure:
     def __init__(self):
         self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
-                       'seeds': ArrayType('seeds', CommonType('Seed', arcadia.Seed)) }
+                       'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}

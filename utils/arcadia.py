@@ -125,17 +125,20 @@ class Seed:
     def __init__(self):
         self.credits = 0
         self.blueprints = BluePrint()
+        self.seed = Control()
 
     @classmethod
-    def load(cls, reader):
+    def load(cls, metastr, reader):
         seed = cls()
         seed.credits = reader.u32()
         seed.blueprints = BluePrint.load(reader)
+        seed.seed = Control.load(metastr, reader)
         return seed
 
     def save(self, writer):
         writer.u32(self.credits)
         self.blueprints.save(writer)
+        self.seed.save(writer)
 
     def __repr__(self):
         return f"Seed {self.credits}"
