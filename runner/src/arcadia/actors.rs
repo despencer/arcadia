@@ -1,4 +1,5 @@
 use std::io::{Result, Read, Write};
+use std::mem;
 use crate::arcadia::dispatcher::Dispatcher;
 use crate::arcadia::control::Control;
 use crate::arcadia::values::Seed;
@@ -101,13 +102,13 @@ impl Actor
   self.body.credits = self.body.credits.saturating_add(amount);
  }
 
- pub fn new(id: u64, home: u64,  seed: &Seed) -> Actor
+ pub fn new(id: u64, home: u64,  seed: &mut Seed) -> Actor
  {
   let mut actor = Actor::default();
   actor.body.id = id;
   actor.body.home = home;
   actor.body.credits = seed.credits;
-  actor.control.new(&seed.blueprints);
+  std::mem::swap(&mut actor.control, &mut seed.seed);
   actor
  }
 

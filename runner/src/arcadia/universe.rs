@@ -115,7 +115,7 @@ impl Universe
      match self.dispatcher.get()
        {
          ActorLifecycle::Death {id} => self.drop_actor(id),
-         ActorLifecycle::Make {parent, home, seed} => self.make_actor(parent, home, seed),
+         ActorLifecycle::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
          _ => {}
        }
      }
@@ -137,10 +137,10 @@ impl Universe
   self.lastseqid
  }
 
- pub fn make_actor(&mut self, parent: u64, home: u64, seed: Seed)
+ pub fn make_actor(&mut self, parent: u64, home: u64, seed: &mut Seed)
  {
   log::info!("New actor request from {} with {} credits", parent, seed.credits);
-  let actor = Actor::new(self.gen_id(), home, &seed); let aid = actor.get_id();
+  let actor = Actor::new(self.gen_id(), home, seed); let aid = actor.get_id();
   let iactor = self.storage.actors.insert(actor);
   self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
   let homeworld =  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap();
