@@ -1,4 +1,7 @@
 units:
+   - name: Compound
+     id: 1
+     data: []
    - name: CreditSensor
      id: 2
      data:
@@ -36,6 +39,8 @@ units:
      data:
        - name: variance
          type: u32
+       - name: blueprints
+         type: blueprint
      ports:
        - name: birthcredits
          type: seeds
@@ -54,3 +59,5 @@ values:
      id: 2
    - type: seeds
      id: 3
+   - type: blueprint
+     id: 4

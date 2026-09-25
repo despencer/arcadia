@@ -89,7 +89,19 @@ class BluePrint:
         self.value = None
 
     @classmethod
-    def load(cls, reader):
+    def make_from(cls, metastr, jvalue):
+        bp = cls()
+        if isinstance(jvalue, list):
+            bp.value = []
+            bp.unit = metastr.get_unit(jvalue[0]).id
+            for jv in jvalue[1:]:
+                bp.value.append( cls.make_from(metastr, jv) )
+        else:
+            bp.value = jvalue
+        return bp
+
+    @classmethod
+    def load(cls, metastr, reader):
         bp = cls()
         btype = reader.u8()
         if btype == cls.FVALUE:
@@ -100,26 +112,29 @@ class BluePrint:
             bp.unit = reader.u16()
             bp.value = []
             for i in range(reader.u32()):
-                bp.value.append( cls.load(reader) )
+                bp.value.append( cls.load(metastr, reader) )
         else:
             raise Exception(f'Unknown blueprint type {btype}')
         return bp
 
     def save(self, writer):
         if isinstance(self.value, float):
-            writer.u8(cls.FVALUE)
+            writer.u8(self.FVALUE)
             writer.f32(self.value)
         elif isinstance(self.value, int):
-            writer.u8(cls.UVALUE)
+            writer.u8(self.UVALUE)
             writer.u32(self.value)
         elif isinstance(self.value, list):
-            writer.u8(cls.COLLECTION)
+            writer.u8(self.COLLECTION)
             writer.u16(self.unit)
             writer.u32( len(self.value) )
             for i in self.value:
                 i.save(writer)
         else:
             raise Exception(f'Unknown blueprint type {self.value}')
+
+    def __repr__(self):
+        return 'BP'
 
 class Seed:
     def __init__(self):
@@ -131,7 +146,7 @@ class Seed:
     def load(cls, metastr, reader):
         seed = cls()
         seed.credits = reader.u32()
-        seed.blueprints = BluePrint.load(reader)
+        seed.blueprints = BluePrint.load(metastr, reader)
         seed.seed = Control.load(metastr, reader)
         return seed
 

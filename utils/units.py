@@ -6,6 +6,9 @@ class SimpleType:
         self.name = name
         self.default = default
 
+    def make(self, jvalue):
+        return jvalue
+
     def read(self, reader):
         return getattr(reader, self.name)()
 
@@ -18,8 +21,11 @@ class CommonType:
         self.aclass = aclass
         self.metastr = metastr
 
+    def make(self, jvalue):
+        return self.aclass.make_from(self.metastr, jvalue)
+
     def read(self, reader):
-        return self.aclass.load(metastr, reader)
+        return self.aclass.load(self.metastr, reader)
 
     def write(self, writer, value):
         return value.save(writer)
@@ -87,7 +93,7 @@ class Unit:
         for m in self.members:
             for jm in junitdef['data']:
                 if jm['name'] == m.name:
-                    setattr(unit, m.name, jm['value'])
+                    setattr(unit, m.name, m.kind.make(jm['value']))
         return unit
 
     def read(self, reader):
@@ -134,7 +140,7 @@ class Value:
 class Structure:
     def __init__(self):
         self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
-                       'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)) }
+                       'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)), 'blueprint': CommonType('Blueprint', self, arcadia.BluePrint) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}
@@ -142,6 +148,9 @@ class Structure:
 
     def get_kind(self, typename):
         return self.kinds[typename]
+
+    def get_unit(self, unitname):
+        return self.unitnames[unitname]
 
     def get_value(self, typename):
         return self.valuetypes[typename]

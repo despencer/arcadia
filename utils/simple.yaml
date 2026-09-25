@@ -20,5 +20,7 @@ control:
        data:
           - name: variance
             value: 400
+          - name: blueprints
+            value: [ Compound, [ CreditSensor, 10 ], [BirthSignal, 800.0, -1.0, 300], [BirthCredit, 400], [ChildMaker, 400], [Spawner] ]
      - type: Spawner
        data: []
