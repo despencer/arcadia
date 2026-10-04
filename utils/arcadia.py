@@ -7,8 +7,9 @@ msb='little'
 UNIVERSE_VERSION=1
 
 class Reader:
-    def __init__(self, fs):
+    def __init__(self, fs, metastr):
         self.fs = fs
+        self.metastr = metastr
         self.actors = {}
         self.worlds = {}
 
@@ -38,6 +39,7 @@ class Reader:
 
     def array(self, alist, reader):
         acount = self.u32()
+        alist.clear()
         for i in range(acount):
             alist.append( reader(self) )
 
@@ -82,77 +84,118 @@ class Writer:
 class BluePrint:
     FVALUE = 1
     UVALUE = 2
-    COLLECTION = 3
+    INSTRUCTION = 3
+    ARCHITECTURE = 4
+    REFERENCE = 5
 
     def __init__(self):
+        self.btype = 0
         self.unit = 0
         self.value = None
+        self.components = None
 
     @classmethod
     def make_from(cls, metastr, jvalue):
         bp = cls()
-        if isinstance(jvalue, list):
-            bp.value = []
-            bp.unit = metastr.get_unit(jvalue[0]).id
-            for jv in jvalue[1:]:
-                bp.value.append( cls.make_from(metastr, jv) )
-        else:
-            bp.value = jvalue
+        bp.btype = cls.ARCHITECTURE
+        bp.components = []
+        bp.value = []
+        for jv in jvalue:
+            bp.value.append( cls.make_unit(metastr, jv) )
         return bp
 
     @classmethod
-    def load(cls, metastr, reader):
+    def make_unit(cls, metastr, jvalue):
         bp = cls()
-        btype = reader.u8()
-        if btype == cls.FVALUE:
+        bp.btype = cls.INSTRUCTION
+        bp.unit = metastr.get_unit(jvalue[0]).id
+        bp.value = []
+        for jv in jvalue[1:]:
+            bp.value.append( cls.make_value(jv) )
+        return bp
+
+    @classmethod
+    def make_value(cls, jvalue):
+        bp = cls()
+        if isinstance(jvalue, int):
+            bp.btype = cls.UVALUE
+            bp.value = jvalue
+        elif isinstance(jvalue, float):
+            bp.btype = cls.FVALUE
+            bp.value = jvalue
+        elif isinstance(jvalue, str):
+            bp.btype = cls.REFERENCE
+        else:
+            raise Exception(f'Bad blueprint value {jvalue}')
+        return bp
+
+    @classmethod
+    def load(cls, reader):
+        bp = cls()
+        bp.btype = reader.u8()
+        if bp.btype == cls.FVALUE:
             bp.value = reader.f32()
-        elif btype == cls.UVALUE:
+        elif bp.btype == cls.UVALUE:
             bp.value = reader.u32()
-        elif btype == cls.COLLECTION:
+        elif bp.btype == cls.INSTRUCTION:
             bp.unit = reader.u16()
             bp.value = []
-            for i in range(reader.u32()):
-                bp.value.append( cls.load(metastr, reader) )
+            reader.array(bp.value, cls.load)
+        elif bp.btype == cls.ARCHITECTURE:
+            bp.components = []
+            bp.value = []
+            reader.array(bp.components, cls.load)
+            reader.array(bp.value, cls.load)
+        elif bp.btype == cls.REFERENCE:
+            pass
         else:
             raise Exception(f'Unknown blueprint type {btype}')
         return bp
 
     def save(self, writer):
-        if isinstance(self.value, float):
-            writer.u8(self.FVALUE)
+        writer.u8(self.btype)
+        if self.btype == self.FVALUE:
             writer.f32(self.value)
-        elif isinstance(self.value, int):
-            writer.u8(self.UVALUE)
+        elif self.btype == self.UVALUE:
             writer.u32(self.value)
-        elif isinstance(self.value, list):
-            writer.u8(self.COLLECTION)
+        elif self.btype == self.INSTRUCTION:
             writer.u16(self.unit)
-            writer.u32( len(self.value) )
-            for i in self.value:
-                i.save(writer)
+            writer.array(self.value, BluePrint.save)
+        elif self.btype == self.ARCHITECTURE:
+            writer.array(self.components, BluePrint.save)
+            writer.array(self.value, BluePrint.save)
+        elif self.btype == self.REFERENCE:
+            pass
         else:
-            raise Exception(f'Unknown blueprint type {self.value}')
+            raise Exception(f'Unknown blueprint type {self.bptype}')
 
     def __repr__(self):
-        return 'BP'
+        if self.btype == self.FVALUE:
+            return f'{self.value:.1f}'
+        elif self.btype == self.UVALUE:
+            return f'{self.value}'
+        elif self.btype == self.INSTRUCTION:
+            return "["+ f'${self.unit}/ ' + ', '.join(map(str, self.value)) +"]"
+        elif self.btype == self.ARCHITECTURE:
+            return "<["+ ', '.join(map(str, self.components)) +"] + [" + ', '.join(map(str, self.value)) +"]>"
+        elif self.btype == self.REFERENCE:
+            return '#'
+        raise Exception(f'Unknown blueprint type {self.bptype}')
 
 class Seed:
     def __init__(self):
         self.credits = 0
-        self.blueprints = BluePrint()
-        self.seed = Control()
+        self.seed = Compartment()
 
     @classmethod
-    def load(cls, metastr, reader):
+    def load(cls, reader):
         seed = cls()
         seed.credits = reader.u32()
-        seed.blueprints = BluePrint.load(metastr, reader)
-        seed.seed = Control.load(metastr, reader)
+        seed.seed = Compartment.load(reader)
         return seed
 
     def save(self, writer):
         writer.u32(self.credits)
-        self.blueprints.save(writer)
         self.seed.save(writer)
 
     def __repr__(self):
@@ -174,12 +217,12 @@ class Values:
     def __init__(self):
         self.values = []
 
-    def load(self, reader, metastr):
+    def load(self, reader):
         if reader.u8() != 1:
             raise Exception('Unknown version of Values')
         self.values = []
         for i in range( reader.u32() ):
-            self.values.append( metastr.read_value(reader) )
+            self.values.append( reader.metastr.read_value(reader) )
 
     def save(self, writer):
         writer.u8(1)
@@ -205,24 +248,23 @@ class Unit:
     def save(self, writer):
         self.meta.write(writer, self)
 
-class Control:
+class Compartment:
     def __init__(self):
+        self.compartments = []
         self.units = []
         self.values = Values()
 
-    def load(self, metastr, reader):
+    def load(self, reader):
         if reader.u8() != 1:
-            raise Exception('Unknown version of Control')
-        self.units = []
-        for i in range( reader.u32() ):
-            self.units.append( metastr.read_unit(reader) )
-        self.values.load(reader, metastr)
+            raise Exception('Unknown version of Compartment')
+        reader.array(self.compartments, Compartment.load)
+        reader.array(self.units, reader.metastr.read_unit)
+        self.values.load(reader)
 
     def save(self, writer):
         writer.u8(1)
-        writer.u32( len(self.units) )
-        for u in self.units:
-            u.save(writer)
+        writer.array(self.compartments, Compartment.save)
+        writer.array(self.units, Unit.save)
         self.values.save(writer)
 
     def has_value(self, name):
@@ -234,16 +276,16 @@ class Actor:
         self.home = None
         self.credits = 0
         self.reserve = 0
-        self.control = Control()
+        self.control = Compartment()
 
     @classmethod
-    def load(cls, metastr, reader):
+    def load(cls, reader):
         actor = cls()
         actor.id = reader.u64()
         actor.home = reader.u64()
         actor.credits = reader.u32()
         actor.reserve = reader.u32()
-        actor.control.load(metastr, reader)
+        actor.control.load(reader)
         reader.actors[actor.id] = actor
         return actor
 
@@ -309,15 +351,15 @@ class Universe:
 
     @classmethod
     def load(cls, fs):
-        reader = Reader(fs)
+        uni = cls()
+        reader = Reader(fs, uni.units)
         version = reader.u16()
         if version != UNIVERSE_VERSION:
             raise Exception(f"Unknown version {version}")
-        uni = cls()
         uni.timetick = reader.u64()
         uni.lastseqid = reader.u64()
         uni.billing = reader.u32()
-        reader.array(uni.actors, lambda x: Actor.load(uni.units, x))
+        reader.array(uni.actors, Actor.load)
         reader.array(uni.worlds, World.load)
         for a in uni.actors:
             a.update(reader)

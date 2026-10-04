@@ -7,3 +7,4 @@ pub mod control;
 pub mod telemetry;
 pub mod storage;
 pub mod values;
+pub mod blueprints;

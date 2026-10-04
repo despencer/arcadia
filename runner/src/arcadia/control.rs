@@ -3,7 +3,8 @@ use std::collections::{HashMap, VecDeque};
 use rand_distr::{Normal, Distribution};
 use crate::arcadia::actors::Body;
 use crate::arcadia::values::{Seed, Values, ValueData, Port};
-use crate::arcadia::storage::{Reader,Writer};
+use crate::arcadia::storage::{Reader,Writer,Factory,Stored};
+use crate::arcadia::blueprints::BluePrint;
 
 pub struct Sampler
 {
@@ -82,10 +83,8 @@ pub trait Unit
  fn version(&self) -> u8;
  fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>;
  fn save(&self, target: &mut Writer) -> Result<()>;
- fn tick(&self, units: &Units, values: &mut Values, body: &mut Body);
- fn make(&self, units: &mut Units, values: &mut Values);
- fn blueprints(&self) -> BluePrint;
- fn make_bp(&mut self, _bp: &BluePrint, _values: &mut Values) -> Result<()>;
+ fn tick(&mut self, values: &mut Values, body: &mut Body);
+ fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values) -> Result<()>;
 }
 
 #[derive(Default)]
@@ -97,7 +96,7 @@ pub struct CreditSensor
 
 impl Unit for CreditSensor
 {
- fn utype(&self) -> u16 { Units::CREDIT_SENSOR }
+ fn utype(&self) -> u16 { UnitFactory::CREDIT_SENSOR }
  fn version(&self) -> u8 { 1 }
 
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
@@ -114,12 +113,12 @@ impl Unit for CreditSensor
   Ok(())
  }
 
- fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&mut self, values: &mut Values, body: &mut Body)
  {
   values.set(self.credits, ValueData::from( self.variator.variate(body.get_credits() as f32) ));
  }
 
- fn make(&self, units: &mut Units, values: &mut Values)
+/* fn make(&self, units: &mut Units, values: &mut Values)
  {
   let mut asensor = CreditSensor::default();
   asensor.variator.set( self.variator.precision );
@@ -130,9 +129,9 @@ impl Unit for CreditSensor
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.variator.precision) ])
- }
+ }*/
 
- fn make_bp(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
   self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
@@ -160,7 +159,7 @@ impl Default for BirthSignal
 
 impl Unit for BirthSignal
 {
- fn utype(&self) -> u16 { Units::BIRTH_SIGNAL }
+ fn utype(&self) -> u16 { UnitFactory::BIRTH_SIGNAL }
  fn version(&self) -> u8 { 1 }
 
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
@@ -184,7 +183,7 @@ impl Unit for BirthSignal
   Ok(())
  }
 
- fn tick(&self, _units: &Units, values: &mut Values, _body: &mut Body)
+ fn tick(&mut self, values: &mut Values, _body: &mut Body)
  {
   let mut rng = rand::thread_rng();
   let ValueData::FValue{ value: credits} = values.get(self.credits) else { panic!("Wrong data type for credits") };
@@ -192,7 +191,7 @@ impl Unit for BirthSignal
   values.set(self.birth, ValueData::from( self.selector.sample(&mut rng) < value ));
  }
 
- fn make(&self, units: &mut Units, values: &mut Values)
+/* fn make(&self, units: &mut Units, values: &mut Values)
  {
   let mut asignal = BirthSignal::default();
   asignal.scale = self.scale;
@@ -207,9 +206,9 @@ impl Unit for BirthSignal
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::BIRTH_SIGNAL, vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ] )
- }
+ }*/
 
- fn make_bp(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.scale = bp.get_f32(0)?;
   self.threshold = bp.get_f32(1)?;
@@ -231,7 +230,7 @@ pub struct BirthCredit
 
 impl Unit for BirthCredit
 {
- fn utype(&self) -> u16 { Units::BIRTH_CREDIT }
+ fn utype(&self) -> u16 { UnitFactory::BIRTH_CREDIT }
  fn version(&self) -> u8 { 1 }
 
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
@@ -248,7 +247,7 @@ impl Unit for BirthCredit
   target.port(self.birthcredits)?;
   Ok(())
  }
- fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&mut self, values: &mut Values, body: &mut Body)
  {
   let ValueData::BValue{ value: birth} = values.get(self.birth) else { panic!("Wrong data type for birth") };
   if *birth
@@ -264,7 +263,7 @@ impl Unit for BirthCredit
      }
  }
 
- fn make(&self, units: &mut Units, values: &mut Values)
+/* fn make(&self, units: &mut Units, values: &mut Values)
  {
   let mut acredit = BirthCredit::default();
   acredit.giveaway.set( self.giveaway.nominal );
@@ -276,8 +275,8 @@ impl Unit for BirthCredit
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
- }
- fn make_bp(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
+ }*/
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.giveaway.set( bp.get_u32(0)? );
   self.birth = values.make(&"birth".to_string(), ValueData::from(false));
@@ -290,18 +289,20 @@ impl Unit for BirthCredit
 pub struct ChildMaker
 {
  variator: Variator,
+ blueprints: BluePrint,
  birthcredits: Port,
  seeds: Port
 }
 
 impl Unit for ChildMaker
 {
- fn utype(&self) -> u16 { Units::CHILD_MAKER }
+ fn utype(&self) -> u16 { UnitFactory::CHILD_MAKER }
  fn version(&self) -> u8 { 1 }
 
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
  {
   self.variator.set( reader.u32()? );
+  self.blueprints = BluePrint::load(reader)?;
   self.birthcredits = reader.port()?;
   self.seeds = reader.port()?;
   Ok(()) 
@@ -309,11 +310,12 @@ impl Unit for ChildMaker
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.variator.precision)?;
+  self.blueprints.save(target)?;
   target.port(self.birthcredits)?;
   target.port(self.seeds)?;
   Ok(())
  }
- fn tick(&self, units: &Units, values: &mut Values, _body: &mut Body)
+ fn tick(&mut self, values: &mut Values, _body: &mut Body)
  {
   let &mut ValueData::Seeds { value: ref mut birthcredits} = values.get_mut(self.birthcredits) else { panic!("Wrong data type for birthcredits") };
   let mut buf : VecDeque<Seed> = VecDeque::new();
@@ -326,14 +328,13 @@ impl Unit for ChildMaker
   while buf.len() > 0
      {
      let mut seed = buf.pop_front().unwrap();
-     seed.seed.make_from(units);
-     seed.blueprints = units.blueprints();
-     seed.blueprints.variate(&self.variator);
+     let bp = self.blueprints.variate(&self.variator);
+     seed.seed = bp.make();
      seeds.push_back(seed);
      }
  }
 
- fn make(&self, units: &mut Units, values: &mut Values)
+/* fn make(&self, units: &mut Units, values: &mut Values)
  {
   let mut amaker = ChildMaker::default();
   amaker.variator.set(self.variator.precision);
@@ -345,10 +346,12 @@ impl Unit for ChildMaker
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::CHILD_MAKER, vec![ BluePrint::from(self.variator.precision) ])
- }
- fn make_bp(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
+ }*/
+
+ fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
+  self.blueprints = bp.get_reference(1, root)?.clone();
   self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
   self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
   Ok( () )
@@ -364,7 +367,7 @@ pub struct Spawner
 
 impl Unit for Spawner
 {
- fn utype(&self) -> u16 { Units::SPAWNER }
+ fn utype(&self) -> u16 { UnitFactory::SPAWNER }
  fn version(&self) -> u8 { 1 }
 
  fn load(&mut self, _version: u8, reader: &mut Reader) -> Result<()>
@@ -377,7 +380,7 @@ impl Unit for Spawner
   target.port(self.seeds)?;
   Ok(())
  }
- fn tick(&self, _units: &Units, values: &mut Values, body: &mut Body)
+ fn tick(&mut self, values: &mut Values, body: &mut Body)
  {
   let &mut ValueData::Seeds { value: ref mut seeds} = values.get_mut(self.seeds) else { panic!("Wrong data type for seeds") };
 
@@ -387,7 +390,7 @@ impl Unit for Spawner
      body.birth(seed);
      }
  }
- fn make(&self, units: &mut Units, values: &mut Values)
+/* fn make(&self, units: &mut Units, values: &mut Values)
  {
   let mut aspawner = Spawner::default();
   aspawner.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
@@ -396,190 +399,94 @@ impl Unit for Spawner
  fn blueprints(&self) -> BluePrint
  {
   BluePrint::new(Units::SPAWNER, vec![ ])
- }
- fn make_bp(&mut self, _bp: &BluePrint, values: &mut Values) -> Result<()>
+ }*/
+ fn make(&mut self, _bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
  {
   self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
   Ok(())
  }
 }
 
-pub enum BluePrint
-{
- FValue { value: f32},
- UValue { value: u32},
- Collection { unit: u16, value: Vec<BluePrint> }
-}
-
-impl Default for BluePrint
-{
- fn default() -> Self
-   { Self::Collection { unit: Units::COMPOUND, value: vec![] } }
-}
-
-impl BluePrint
-{
- const FVALUE: u8 = 1;
- const UVALUE: u8 = 2;
- const COLLECTION: u8 = 3;
-
- pub fn load(source: &mut Reader) -> Result<Self>
- {
-  let utype = source.u8()?;
-  let bp = match utype
-        {
-        Self::FVALUE => Self::FValue { value: source.f32()? },
-        Self::UVALUE => Self::UValue { value: source.u32()? },
-        Self::COLLECTION =>
-              {
-              let unit = source.u16()?;
-              let mut value : Vec<BluePrint> = Vec::new();
-              let ucount = source.u32()?;
-              for _ in 0..ucount
-                 { value.push( BluePrint::load(source)? ); }
-              Self::Collection { unit: unit, value: value }
-              },
-        _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown unit"))
-        };
-
-  Ok(bp)
- }
- pub fn save(&self, target: &mut Writer) -> Result<()>
- {
-  match self
-    {
-    Self::FValue {value} =>
-           { target.u8(Self::FVALUE)?; target.f32(*value)? },
-    Self::UValue {value} =>
-           { target.u8(Self::UVALUE)?; target.u32(*value)? },
-    Self::Collection {unit, value} =>
-           { target.u8(Self::COLLECTION)?;
-             target.u16(*unit)?;
-             target.u32(value.len() as u32)?;
-             for bp in value.iter()
-                { bp.save(target)?; } }
-    }
-  Ok( () )
- }
- pub fn variate(&mut self, variator: &Variator)
- {
-  match self
-    {
-    Self::FValue {value} => *self = Self::FValue { value: variator.variate(*value) },
-    Self::UValue {value} => *self = Self::UValue { value: variator.variate_u32(*value) },
-    Self::Collection {value, ..} =>
-          for bp in value
-            { bp.variate(variator); }
-    }
- }
-}
-
-impl From<u32> for BluePrint
-{
- fn from(value: u32) -> Self { Self::UValue { value: value } }
-}
-
-impl From<f32> for BluePrint
-{
- fn from(value: f32) -> Self { Self::FValue { value: value } }
-}
-
-impl BluePrint
-{
- fn new(unit: u16, value: Vec<BluePrint>) -> Self { Self::Collection { unit:unit, value: value } }
-
- pub fn get_collection(&self) -> Result<&[BluePrint]>
- {
-  match self
-     {
-     Self::Collection {value, ..} => Ok(&value),
-     _ => Err(Error::new(ErrorKind::InvalidData, "Collection required"))
-     }
- }
-
- pub fn get_unit(&self) -> Result<u16>
- {
-  match self
-     {
-     Self::Collection {unit, ..} => Ok(*unit),
-     _ => Err(Error::new(ErrorKind::InvalidData, "Collection required"))
-     }
- }
-
- pub fn get_f32(&self, index: usize) -> Result<f32>
- {
-  let item = &(self.get_collection()?)[index];
-  match item
-     {
-     BluePrint::FValue { value } => Ok( *value ),
-     _ => Err(Error::new(ErrorKind::InvalidData, "F32 required"))
-     }
- }
-
- pub fn get_u32(&self, index: usize) -> Result<u32>
- {
-  let item = &(self.get_collection()?)[index];
-  match item
-     {
-     BluePrint::UValue { value } => Ok( *value ),
-     _ => Err(Error::new(ErrorKind::InvalidData, "U32 required"))
-     }
- }
-
-}
-
 type UnitCreator = fn() -> Box<dyn Unit>;
 
-pub struct Units
+pub struct UnitFactory
 {
- factory: HashMap<u16, UnitCreator>,
- units: Vec<Box<dyn Unit>>,
+ factory: HashMap<u16, UnitCreator>
 }
 
-impl Default for Units
+impl Default for UnitFactory
 {
  fn default() -> Self
   {
   let mut factory: HashMap<u16, UnitCreator> = HashMap::new();
+//  factory.insert(Self::COMPOUND, || Box::new(Compound::default()) );
   factory.insert(Self::CREDIT_SENSOR, || Box::new(CreditSensor::default()) );
   factory.insert(Self::BIRTH_SIGNAL, || Box::new(BirthSignal::default()) );
   factory.insert(Self::BIRTH_CREDIT, || Box::new(BirthCredit::default()) );
   factory.insert(Self::CHILD_MAKER, || Box::new(ChildMaker::default()) );
   factory.insert(Self::SPAWNER, || Box::new(Spawner::default()) );
-  Units { factory, units: Vec::new() }
+  UnitFactory { factory }
   }
 }
 
-impl Units
+impl UnitFactory
 {
- pub fn tick(&self, values: &mut Values, body: &mut Body)
- {
-  for u in self.units.iter()
-     { u.tick(self, values, body); }
- }
-
- const COMPOUND :u16 = 1;
+// const COMPOUND :u16 = 1;
  const CREDIT_SENSOR :u16 = 2;
  const BIRTH_SIGNAL :u16 = 3;
  const BIRTH_CREDIT :u16 = 4;
  const CHILD_MAKER :u16 = 5;
  const SPAWNER :u16 = 6;
 
- pub fn load(&mut self, reader: &mut Reader) -> Result<()>
+ pub fn get (&self, unit: u16) -> Box<dyn Unit>
  {
+  (self.factory.get(&unit).unwrap()) ()
+ }
+}
+
+#[derive(Default)]
+pub struct Compartment
+{
+ components: Vec<Box<Compartment>>,
+ units: Vec<Box<dyn Unit>>,
+ values: Values,
+}
+
+impl Compartment
+{
+ fn version(&self) -> u8 { 1 }
+
+ pub fn tick(&mut self, body: &mut Body)
+ {
+  for u in &mut self.units
+     { u.tick(&mut self.values, body); }
+  for c in &mut self.components
+     { c.tick(body); }
+ }
+
+ pub fn load(reader: &mut Reader, factory: &UnitFactory) -> Result<Box<Compartment>>
+ {
+  let mut compartment = Self::default();
+  if reader.u8()? > compartment.version()
+         { return Err(Error::new(ErrorKind::InvalidData, "Unknown compartment version")); }
+
+  for _ in 0..reader.count()?
+     { compartment.components.push( Compartment::load(reader, factory)? ); }
+
   for _ in 0..reader.count()?
      {
-     let mut unit = self.factory.get(&reader.u16()?).expect("Unknown unit")();
+     let mut unit = factory.get(reader.u16()?);
      let version = reader.u8()?;
      if version > unit.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown unit version")); }
      unit.load(version, reader)?;
-     self.units.push(unit);
+     compartment.units.push(unit);
      }
-   Ok(())
+   compartment.values.load(reader)?;
+   Ok( Box::new(compartment) )
  }
 
- pub fn new(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
+/* pub fn new(&mut self, bp: &BluePrint, values: &mut Values) -> Result<()>
  {
   for ubp in bp.get_collection()?
       {
@@ -600,31 +507,104 @@ impl Units
  pub fn append(&mut self, unit: Box<dyn Unit>)
  {
   self.units.push(unit);
- }
+ }*/
 
- pub fn save(&self, target: &mut Writer) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  target.count(self.units.len())?;
-  for unit in self.units.iter()
+  writer.u8(self.version())?;
+
+  writer.count(self.components.len())?;
+  for comp in &self.components
+      { comp.save(writer)?;  }
+
+  writer.count(self.units.len())?;
+  for unit in &self.units
       {
-      target.u16(unit.utype())?;
-      target.u8(unit.version())?;
-      unit.save(target)?;
+      writer.u16(unit.utype())?;
+      writer.u8(unit.version())?;
+      unit.save(writer)?;
       }
+   self.values.save(writer)?;
    Ok(())
  }
 
- fn blueprints(&self) -> BluePrint
+ pub fn make(bp: &BluePrint, root: &BluePrint, factory: &UnitFactory) -> Result<Box<Compartment>>
+ {
+  let BluePrint::Architecture {components, instructions} = bp else { panic!("Wrong blueprint for compartment") };
+  let mut compartment = Self::default();
+
+  for ubp in components
+      { compartment.components.push( Compartment::make(ubp, root, factory)? ); }
+
+  for ubp in instructions
+      { 
+      let mut aunit = factory.get(ubp.get_unit()?);
+      aunit.make(ubp, root, &mut compartment.values)?;
+      compartment.units.push(aunit);
+      }
+  Ok( Box::new(compartment) )
+ }
+
+/* fn blueprints(&self) -> BluePrint
  {
   let mut value : Vec<BluePrint> = Vec::new();
   for unit in self.units.iter()
      { value.push( unit.blueprints() ); }
   BluePrint::Collection { unit: Self::COMPOUND, value: value }
- }
+ }*/
 
 }
 
-#[derive(Default)]
+/*#[derive(Default)]
+pub struct Compound
+{
+ units: Units,
+ values: Values
+}
+
+impl Unit for Compound
+{
+ fn utype(&self) -> u16 { Units::COMPOUND }
+ fn version(&self) -> u8 { 1 }
+ fn load(&mut self, _version: u8, reader: &mut Reader, factory: &UnitFactory) -> Result<()>
+ {
+  self.units.load(reader, factory)?;
+  self.values.load(reader)
+ }
+ fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  self.units.save(writer)?;
+  self.values.save(writer)
+ }
+ fn tick(&mut self, _values: &mut Values, body: &mut Body)
+ {
+  self.units.tick(&mut self.values, body);
+ }
+ fn make(&self, units: &mut Units, _values: &mut Values)
+ {
+  let mut acomp = Self::default();
+  self.units.make(&mut acomp.units, &mut acomp.values);
+  units.append(Box::new(acomp));
+ }
+ fn blueprints(&self) -> BluePrint
+ {
+  self.units.blueprints()
+ }
+ fn make(&mut self, bp: &BluePrint, root: &BluePrint, _values: &mut Values) -> Result<()>
+ {
+  self.units.new(bp, root, &mut self.values)
+ }
+}
+
+impl Compound
+{
+ fn tick_top(&self, body: &mut Body)
+ {
+  self.units.tick(&mut self.values, body);
+ }
+}*/
+
+/*#[derive(Default)]
 pub struct Control
 {
  units: Units,
@@ -666,4 +646,4 @@ impl Control
    self.values.save(writer)?;
    Ok(())
  }
-}
+}*/

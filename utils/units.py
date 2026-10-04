@@ -25,7 +25,7 @@ class CommonType:
         return self.aclass.make_from(self.metastr, jvalue)
 
     def read(self, reader):
-        return self.aclass.load(self.metastr, reader)
+        return self.aclass.load(reader)
 
     def write(self, writer, value):
         return value.save(writer)

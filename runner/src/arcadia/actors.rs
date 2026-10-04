@@ -1,7 +1,6 @@
 use std::io::{Result, Read, Write};
-use std::mem;
 use crate::arcadia::dispatcher::Dispatcher;
-use crate::arcadia::control::Control;
+use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer};
 
@@ -75,7 +74,7 @@ impl Body
 pub struct Actor
 {
  body: Body,
- control: Control
+ control: Box<Compartment>
 }
 
 impl Actor
@@ -121,7 +120,8 @@ impl Actor
    log::debug!("Actor {} loading", actor.body.id);
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
-   actor.control.load(&mut reader)?;
+   let factory = UnitFactory::default();
+   actor.control = Compartment::load(&mut reader, &factory)?;
    log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
  }
