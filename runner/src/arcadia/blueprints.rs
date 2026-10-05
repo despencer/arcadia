@@ -7,6 +7,7 @@ pub enum BluePrint
  FValue { value: f32},
  UValue { value: u32},
  Instruction { unit: u16, instructions: Vec<BluePrint> },
+ Compound { node: String, instructions: Vec<BluePrint> },
  Architecture { components: Vec<BluePrint>, instructions: Vec<BluePrint> },
  Reference {}
 }
@@ -22,8 +23,9 @@ impl BluePrint
  const FLOAT: u8 = 1;
  const INTEGER: u8 = 2;
  const INSTRUCTION: u8 = 3;
- const ARCHITECTURE: u8 = 4;
- const REFERENCE: u8 = 5;
+ const COMPOUND: u8 = 4;
+ const ARCHITECTURE: u8 = 5;
+ const REFERENCE: u8 = 6;
 }
 
 impl Factory for BluePrint
@@ -41,6 +43,13 @@ impl Factory for BluePrint
               let mut instructions : Vec<BluePrint> = Vec::new();
               reader.vec(&mut instructions)?;
               Self::Instruction { unit: unit, instructions: instructions }
+              },
+        Self::COMPOUND =>
+              {
+              let node = reader.utf8()?;
+              let mut instructions : Vec<BluePrint> = Vec::new();
+              reader.vec(&mut instructions)?;
+              Self::Compound { node, instructions }
               },
         Self::ARCHITECTURE =>
               {
@@ -70,6 +79,10 @@ impl Stored for BluePrint
     Self::Instruction {unit, instructions} =>
            { target.u8(Self::INSTRUCTION)?;
              target.u16(*unit)?;
+             target.vec(instructions)?; },
+    Self::Compound {node, instructions} =>
+           { target.u8(Self::COMPOUND)?;
+             target.utf8(&node)?;
              target.vec(instructions)?; },
     Self::Architecture {components, instructions } =>
            { target.u8(Self::ARCHITECTURE)?;
@@ -102,6 +115,8 @@ impl Clone for BluePrint
     Self::UValue {value} => Self::UValue { value: *value },
     Self::Instruction {unit, instructions} =>
           Self::Instruction { unit: *unit, instructions: instructions.into_iter().map(|bp| bp.clone()).collect() },
+    Self::Compound {node, instructions} =>
+          Self::Compound { node: node.clone(), instructions: instructions.into_iter().map(|bp| bp.clone()).collect() },
     Self::Architecture {components, instructions } =>
           Self::Architecture { components: components.into_iter().map(|bp| bp.clone()).collect()
                    , instructions: instructions.into_iter().map(|bp| bp.clone()).collect() },
@@ -120,9 +135,11 @@ impl BluePrint
     Self::UValue {value} => Self::UValue { value: variator.variate_u32(*value) },
     Self::Instruction {unit, instructions} =>
           Self::Instruction { unit: *unit, instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
+    Self::Compound {node, instructions} =>
+          Self::Compound { node: node.clone(), instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
     Self::Architecture {components, instructions } =>
-          Self::Architecture { components: components.into_iter().map(|bp| bp.variate(variator)).collect()
-                   , instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
+          Self::Architecture { components: components.into_iter().map(|bp| bp.variate(variator)).collect(),
+                   instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
     Self::Reference {} => Self::Reference {}
     }
  }
@@ -142,14 +159,14 @@ impl BluePrint
      }
  }
 
- pub fn get_unit(&self) -> Result<u16>
+/* pub fn get_unit(&self) -> Result<u16>
  {
   match self
      {
      Self::Instruction {unit, ..} => Ok(*unit),
      _ => Err(Error::new(ErrorKind::InvalidData, "Instructions required"))
      }
- }
+ }*/
 
  pub fn get_f32(&self, index: usize) -> Result<f32>
  {

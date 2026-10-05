@@ -85,8 +85,9 @@ class BluePrint:
     FVALUE = 1
     UVALUE = 2
     INSTRUCTION = 3
-    ARCHITECTURE = 4
-    REFERENCE = 5
+    COMPOUND = 4
+    ARCHITECTURE = 5
+    REFERENCE = 6
 
     def __init__(self):
         self.btype = 0
@@ -107,11 +108,18 @@ class BluePrint:
     @classmethod
     def make_unit(cls, metastr, jvalue):
         bp = cls()
-        bp.btype = cls.INSTRUCTION
-        bp.unit = metastr.get_unit(jvalue[0]).id
-        bp.value = []
-        for jv in jvalue[1:]:
-            bp.value.append( cls.make_value(jv) )
+        if jvalue[0][0] == '$':
+            bp.btype = cls.INSTRUCTION
+            bp.unit = metastr.get_unit(jvalue[0][1:]).id
+            bp.value = []
+            for jv in jvalue[1:]:
+                bp.value.append( cls.make_value(jv) )
+        else:
+            bp.btype = cls.COMPOUND
+            bp.unit = jvalue[0]
+            bp.value = []
+            for jv in jvalue[1:]:
+                bp.value.append( cls.make_unit(metastr, jv) )
         return bp
 
     @classmethod
@@ -141,6 +149,10 @@ class BluePrint:
             bp.unit = reader.u16()
             bp.value = []
             reader.array(bp.value, cls.load)
+        elif bp.btype == cls.COMPOUND:
+            bp.unit = reader.utf8()
+            bp.value = []
+            reader.array(bp.value, cls.load)
         elif bp.btype == cls.ARCHITECTURE:
             bp.components = []
             bp.value = []
@@ -161,6 +173,9 @@ class BluePrint:
         elif self.btype == self.INSTRUCTION:
             writer.u16(self.unit)
             writer.array(self.value, BluePrint.save)
+        elif self.btype == self.COMPOUND:
+            writer.utf8(self.unit)
+            writer.array(self.value, BluePrint.save)
         elif self.btype == self.ARCHITECTURE:
             writer.array(self.components, BluePrint.save)
             writer.array(self.value, BluePrint.save)
@@ -175,7 +190,9 @@ class BluePrint:
         elif self.btype == self.UVALUE:
             return f'{self.value}'
         elif self.btype == self.INSTRUCTION:
-            return "["+ f'${self.unit}/ ' + ', '.join(map(str, self.value)) +"]"
+            return "["+ f'${self.unit}: ' + ', '.join(map(str, self.value)) +"]"
+        elif self.btype == self.COMPOUND:
+            return "["+ f'"{self.unit}": ' + ', '.join(map(str, self.value)) +"]"
         elif self.btype == self.ARCHITECTURE:
             return "<["+ ', '.join(map(str, self.components)) +"] + [" + ', '.join(map(str, self.value)) +"]>"
         elif self.btype == self.REFERENCE:

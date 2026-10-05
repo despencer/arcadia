@@ -537,12 +537,29 @@ impl Compartment
       { compartment.components.push( Compartment::make(ubp, root, factory)? ); }
 
   for ubp in instructions
-      { 
-      let mut aunit = factory.get(ubp.get_unit()?);
-      aunit.make(ubp, root, &mut compartment.values)?;
-      compartment.units.push(aunit);
-      }
+    { compartment.make_instructions(&ubp, root, factory)?; }
+
   Ok( Box::new(compartment) )
+ }
+
+ pub fn make_instructions(&mut self, bp: &BluePrint, root: &BluePrint, factory: &UnitFactory) -> Result<()>
+ {
+  match bp
+    {
+    BluePrint::Instruction {unit, instructions: _} =>
+          {
+          let mut aunit = factory.get(*unit);
+          aunit.make(bp, root, &mut self.values)?;
+          self.units.push(aunit);
+          },
+    BluePrint::Compound { node: _, instructions} =>
+          {
+          for ubp in instructions
+              { self.make_instructions(&ubp, root, factory)?; }
+          },
+     _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid instructions for a unit"))
+    }
+ Ok(())
  }
 
 /* fn blueprints(&self) -> BluePrint

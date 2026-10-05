@@ -3,21 +3,20 @@
 import arcadia
 
 def values(actor):
-    return "["+ ', '.join(map(str, actor.control.values.values)) +"]"
+    return "values: "+ ', '.join(map(str, actor.control.values.values))
 
 def unit_params(unit):
-    return '['+ ', '.join(map(lambda x: str(getattr(unit, x.name))  , unit.meta.members))  +']'
+    return f'${unit.meta.id}:['+ ', '.join(map(lambda x: str(getattr(unit, x.name))  , unit.meta.members))  +']'
 
 def params(actor):
-    return "["+ ', '.join(map(unit_params, actor.control.units)) +"]"
+    return "params: "+ ', '.join(map(unit_params, actor.control.units))
 
 def report(uni):
     print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:
-        rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} {values(a)} at #{a.home.id}'
-        rep += f' params {params(a)}'
+        rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} at #{a.home.id}\n  {values(a)}\n  {params(a)}'
         print(rep)
 
 def main():
