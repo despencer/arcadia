@@ -299,6 +299,8 @@ class Actor:
 
     @classmethod
     def load(cls, reader):
+        if reader.u8() != 1:
+            raise Exception('Unknown version of Actor')
         actor = cls()
         actor.id = reader.u64()
         actor.home = reader.u64()
@@ -312,6 +314,7 @@ class Actor:
         self.home = reader.worlds[self.home]
 
     def save(self, writer):
+        writer.u8(1)
         writer.u64(self.id)
         writer.u64(self.home.id)
         writer.u32(self.credits)

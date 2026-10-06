@@ -6,6 +6,7 @@ use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
@@ -48,7 +49,8 @@ impl Universe
   log::info!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
-     let actor = Actor::load_1(source)?; let aid = actor.get_id();
+     let mut reader = Reader::new(source);
+     let actor = Actor::load(&mut reader)?; let aid = actor.get_id();
      let iactor = self.storage.actors.insert(actor);
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
@@ -71,8 +73,9 @@ impl Universe
   self.commune.save_1(target)?;
   target.write_u32::<LittleEndian>(self.storage.actors.len() as u32)?;
   log::info!("Universe saving {} actors", self.storage.actors.len());
+  let mut writer = Writer::new(target);
   for actor in self.storage.actors.iterdata()
-      { actor.save_1(target)?; }
+      { actor.save(&mut writer)?; }
   target.write_u32::<LittleEndian>(self.storage.worlds.len() as u32)?;
   for world in self.storage.worlds.iterdata()
       { world.save_1(target, &self.storage.actors)?; }

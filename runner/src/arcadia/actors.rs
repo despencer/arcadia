@@ -1,4 +1,4 @@
-use std::io::{Result, Read, Write};
+use std::io::{Result, Error, ErrorKind};
 use crate::arcadia::interface::Interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
@@ -79,6 +79,8 @@ pub struct Actor
 
 impl Actor
 {
+ fn version(&self) -> u8 { 1 }
+
  pub fn get_id(&self) -> u64
  { self.body.id }
 
@@ -111,29 +113,30 @@ impl Actor
   actor
  }
 
- pub fn load_1(source: &mut dyn Read) -> Result<Self>
+ pub fn load(reader: &mut Reader) -> Result<Self>
  {
    let mut actor = Actor::default();
-   let mut reader = Reader::new(source);
+   if reader.u8()? > actor.version()
+         { return Err(Error::new(ErrorKind::InvalidData, "Unknown actor version")); }
    actor.body.id = reader.u64()?;
    actor.body.home = reader.u64()?;
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
    let factory = UnitFactory::default();
-   actor.control = Compartment::load(&mut reader, &factory)?;
+   actor.control = Compartment::load(reader, &factory)?;
    log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
  }
 
- pub fn save_1(&self, target: &mut dyn Write) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
    log::debug!("Saving actor {}", self.body.id);
-   let mut writer = Writer::new(target);
+   writer.u8(self.version())?;
    writer.u64(self.body.id)?;
    writer.u64(self.body.home)?;
    writer.u32(self.body.credits)?;
    writer.u32(self.body.reserve)?;
-   self.control.save(&mut writer)?;
+   self.control.save(writer)?;
    Ok(())
  }
 }
