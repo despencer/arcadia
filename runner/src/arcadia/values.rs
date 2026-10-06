@@ -129,14 +129,22 @@ impl Values
   writer.vec(&self.values)
  }
 
- pub fn make(&mut self, name: &String, value: ValueData) -> Port
+ pub fn subnode(node: &String, name: &String) -> String
  {
+  if *name == ""
+   { return node.clone(); }
+  return format!("{node}{name}/");
+ }
+
+ pub fn make(&mut self, node: &String, name: &String, value: ValueData) -> Port
+ {
+  let fullname = format!("{node}{name}");
   for i in 0..self.values.len()
     {
-    if self.values[i].name == *name
+    if self.values[i].name == fullname
        { return Port(i); }
     }
-  self.values.push( Value { name: name.clone(), value } );
+  self.values.push( Value { name: fullname, value } );
   Port(self.values.len()-1)
  }
 

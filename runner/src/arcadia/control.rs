@@ -84,7 +84,7 @@ pub trait Unit
  fn load(&mut self, version: u8, reader: &mut Reader) -> Result<()>;
  fn save(&self, target: &mut Writer) -> Result<()>;
  fn tick(&mut self, values: &mut Values, body: &mut Body);
- fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values) -> Result<()>;
+ fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values, node: &String) -> Result<()>;
 }
 
 #[derive(Default)]
@@ -131,10 +131,10 @@ impl Unit for CreditSensor
   BluePrint::new(Units::CREDIT_SENSOR, vec![ BluePrint::from(self.variator.precision) ])
  }*/
 
- fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values, node: &String) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
-  self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
+  self.credits = values.make(node, &"credits".to_string(), ValueData::from(0.0));
   Ok(())
  }
 }
@@ -208,14 +208,14 @@ impl Unit for BirthSignal
   BluePrint::new(Units::BIRTH_SIGNAL, vec![ BluePrint::from(self.scale), BluePrint::from(self.threshold), BluePrint::from(self.variation) ] )
  }*/
 
- fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values, node: &String) -> Result<()>
  {
   self.scale = bp.get_f32(0)?;
   self.threshold = bp.get_f32(1)?;
   self.variation = bp.get_u32(2)?;
   self.selector = Normal::new(0.0, (self.variation as f32)/1000.0).unwrap();
-  self.credits = values.make(&"credits".to_string(), ValueData::from(0.0));
-  self.birth = values.make(&"birth".to_string(), ValueData::from(false));
+  self.credits = values.make(node, &"credits".to_string(), ValueData::from(0.0));
+  self.birth = values.make(node, &"birth".to_string(), ValueData::from(false));
   Ok( () )
  }
 }
@@ -276,11 +276,11 @@ impl Unit for BirthCredit
  {
   BluePrint::new(Units::BIRTH_CREDIT, vec![ BluePrint::from(self.giveaway.nominal) ])
  }*/
- fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, _root: &BluePrint, values: &mut Values, node: &String) -> Result<()>
  {
   self.giveaway.set( bp.get_u32(0)? );
-  self.birth = values.make(&"birth".to_string(), ValueData::from(false));
-  self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
+  self.birth = values.make(node, &"birth".to_string(), ValueData::from(false));
+  self.birthcredits = values.make(node, &"birthcredits".to_string(), ValueData::new_seeds() );
   Ok( () )
  }
 }
@@ -348,12 +348,12 @@ impl Unit for ChildMaker
   BluePrint::new(Units::CHILD_MAKER, vec![ BluePrint::from(self.variator.precision) ])
  }*/
 
- fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, bp: &BluePrint, root: &BluePrint, values: &mut Values, node: &String) -> Result<()>
  {
   self.variator.set( bp.get_u32(0)? );
   self.blueprints = bp.get_reference(1, root)?.clone();
-  self.birthcredits = values.make(&"birthcredits".to_string(), ValueData::new_seeds() );
-  self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
+  self.birthcredits = values.make(node, &"birthcredits".to_string(), ValueData::new_seeds() );
+  self.seeds = values.make(node, &"seeds".to_string(), ValueData::new_seeds() );
   Ok( () )
  }
 
@@ -400,9 +400,9 @@ impl Unit for Spawner
  {
   BluePrint::new(Units::SPAWNER, vec![ ])
  }*/
- fn make(&mut self, _bp: &BluePrint, _root: &BluePrint, values: &mut Values) -> Result<()>
+ fn make(&mut self, _bp: &BluePrint, _root: &BluePrint, values: &mut Values, node: &String) -> Result<()>
  {
-  self.seeds = values.make(&"seeds".to_string(), ValueData::new_seeds() );
+  self.seeds = values.make(node, &"seeds".to_string(), ValueData::new_seeds() );
   Ok(())
  }
 }
@@ -419,7 +419,6 @@ impl Default for UnitFactory
  fn default() -> Self
   {
   let mut factory: HashMap<u16, UnitCreator> = HashMap::new();
-//  factory.insert(Self::COMPOUND, || Box::new(Compound::default()) );
   factory.insert(Self::CREDIT_SENSOR, || Box::new(CreditSensor::default()) );
   factory.insert(Self::BIRTH_SIGNAL, || Box::new(BirthSignal::default()) );
   factory.insert(Self::BIRTH_CREDIT, || Box::new(BirthCredit::default()) );
@@ -431,7 +430,6 @@ impl Default for UnitFactory
 
 impl UnitFactory
 {
-// const COMPOUND :u16 = 1;
  const CREDIT_SENSOR :u16 = 2;
  const BIRTH_SIGNAL :u16 = 3;
  const BIRTH_CREDIT :u16 = 4;
@@ -536,25 +534,27 @@ impl Compartment
   for ubp in components
       { compartment.components.push( Compartment::make(ubp, root, factory)? ); }
 
-  compartment.make_instructions(instructions, root, factory)?;
+  let node = "/".to_string();
+  compartment.make_instructions(instructions, root, factory, &node)?;
 
   Ok( Box::new(compartment) )
  }
 
- pub fn make_instructions(&mut self, bp: &BluePrint, root: &BluePrint, factory: &UnitFactory) -> Result<()>
+ pub fn make_instructions(&mut self, bp: &BluePrint, root: &BluePrint, factory: &UnitFactory, basenode: &String) -> Result<()>
  {
   match bp
     {
     BluePrint::Instruction {unit, instructions: _} =>
           {
           let mut aunit = factory.get(*unit);
-          aunit.make(bp, root, &mut self.values)?;
+          aunit.make(bp, root, &mut self.values, basenode)?;
           self.units.push(aunit);
           },
-    BluePrint::Compound { node: _, instructions} =>
+    BluePrint::Compound { node, instructions} =>
           {
+          let cnode = Values::subnode(basenode, &node);
           for ubp in instructions
-              { self.make_instructions(&ubp, root, factory)?; }
+              { self.make_instructions(&ubp, root, factory, &cnode)?; }
           },
      _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid instructions for a unit"))
     }
