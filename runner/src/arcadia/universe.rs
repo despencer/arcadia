@@ -9,7 +9,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::actors::{Actor, ActorLifecycle};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::dispatcher::Dispatcher;
+use crate::arcadia::interface::Interface;
 use crate::arcadia::values::Seed;
 use crate::arcadia::telemetry;
 
@@ -29,7 +29,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- dispatcher: Dispatcher<ActorLifecycle>,
+ interface: Interface<ActorLifecycle>,
  telemetry: telemetry::Writer
 }
 
@@ -108,11 +108,11 @@ impl Universe
  pub fn tick(&mut self)
  {
   self.timetick += 1;
-  self.commune.tick(&mut self.storage.actors, &mut self.dispatcher);
+  self.commune.tick(&mut self.storage.actors, &mut self.interface);
   self.realm.tick(&mut self.storage.worlds, &mut self.storage.actors);
-  while self.dispatcher.len() > 0
+  while self.interface.len() > 0
      {
-     match self.dispatcher.get()
+     match self.interface.get()
        {
          ActorLifecycle::Death {id} => self.drop_actor(id),
          ActorLifecycle::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
@@ -162,7 +162,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
-                            realm: Realm::default(), dispatcher: Dispatcher::<ActorLifecycle>::default(),
+                            realm: Realm::default(), interface: Interface::<ActorLifecycle>::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();

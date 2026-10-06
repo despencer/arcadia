@@ -1,5 +1,5 @@
 use std::io::{Result, Read, Write};
-use crate::arcadia::dispatcher::Dispatcher;
+use crate::arcadia::interface::Interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer};
@@ -28,7 +28,7 @@ pub struct Body
  home: u64,
  credits: u32,
  reserve: u32,
- inside: Dispatcher<ActorInside>
+ inside: Interface<ActorInside>
 }
 
 impl Body
@@ -56,7 +56,7 @@ impl Body
    }
  }
 
- pub fn tick(&mut self, outside: &mut Dispatcher<ActorLifecycle>)
+ pub fn tick(&mut self, outside: &mut Interface<ActorLifecycle>)
  {
   while self.inside.len() > 0
      {
@@ -82,18 +82,18 @@ impl Actor
  pub fn get_id(&self) -> u64
  { self.body.id }
 
- pub fn tick(&mut self, dispatcher: &mut Dispatcher<ActorLifecycle>)
+ pub fn tick(&mut self, interface: &mut Interface<ActorLifecycle>)
  {
-  self.body.tick(dispatcher);
+  self.body.tick(interface);
   self.control.tick(&mut self.body);
  }
 
- pub fn billing(&mut self, amount: u32, dispatcher: &mut Dispatcher<ActorLifecycle>)
+ pub fn billing(&mut self, amount: u32, interface: &mut Interface<ActorLifecycle>)
  {
   if self.body.credits >= amount
     {  self.body.credits -= amount; }
   else
-    { self.body.credits = 0; dispatcher.put( ActorLifecycle::Death {id : self.body.id} ); }
+    { self.body.credits = 0; interface.put( ActorLifecycle::Death {id : self.body.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)

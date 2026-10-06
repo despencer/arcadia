@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 
 #[derive(Default)]
-pub struct Dispatcher<T>
+pub struct Interface<T>
 {
  messages: VecDeque<T>
 }
 
-impl<T> Dispatcher<T>
+impl<T> Interface<T>
 {
  pub fn put(&mut self, message: T)
  {

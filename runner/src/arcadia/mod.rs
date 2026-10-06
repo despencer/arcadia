@@ -2,7 +2,7 @@ pub mod depot;
 pub mod universe;
 pub mod actors;
 pub mod places;
-pub mod dispatcher;
+pub mod interface;
 pub mod control;
 pub mod telemetry;
 pub mod storage;
