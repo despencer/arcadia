@@ -8,14 +8,14 @@ pub enum BluePrint
  UValue { value: u32},
  Instruction { unit: u16, instructions: Vec<BluePrint> },
  Compound { node: String, instructions: Vec<BluePrint> },
- Architecture { components: Vec<BluePrint>, instructions: Vec<BluePrint> },
+ Architecture { components: Vec<BluePrint>, instructions: Box<BluePrint> },
  Reference {}
 }
 
 impl Default for BluePrint
 {
  fn default() -> Self
-   { Self::Architecture { components: vec![], instructions: vec![] } }
+   { Self::Architecture { components: vec![], instructions: { Box::new(Self::Compound { node: String::new(), instructions: vec![] })  } } }
 }
 
 impl BluePrint
@@ -55,9 +55,7 @@ impl Factory for BluePrint
               {
               let mut components : Vec<BluePrint> = Vec::new();
               reader.vec(&mut components)?;
-              let mut instructions : Vec<BluePrint> = Vec::new();
-              reader.vec(&mut instructions)?;
-              Self::Architecture { components, instructions }
+              Self::Architecture { components, instructions: Box::new(Self::load(reader)?) }
               }
         Self::REFERENCE => Self::Reference {},
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown blueprint"))
@@ -87,7 +85,7 @@ impl Stored for BluePrint
     Self::Architecture {components, instructions } =>
            { target.u8(Self::ARCHITECTURE)?;
              target.vec(components)?;
-             target.vec(instructions)?; },
+             instructions.save(target)?; },
     Self::Reference {} =>
            { target.u8(Self::REFERENCE)?; }
     }
@@ -119,7 +117,7 @@ impl Clone for BluePrint
           Self::Compound { node: node.clone(), instructions: instructions.into_iter().map(|bp| bp.clone()).collect() },
     Self::Architecture {components, instructions } =>
           Self::Architecture { components: components.into_iter().map(|bp| bp.clone()).collect()
-                   , instructions: instructions.into_iter().map(|bp| bp.clone()).collect() },
+                   , instructions: instructions.clone() },
     Self::Reference {} => Self::Reference {}
     }
  }
@@ -139,7 +137,7 @@ impl BluePrint
           Self::Compound { node: node.clone(), instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
     Self::Architecture {components, instructions } =>
           Self::Architecture { components: components.into_iter().map(|bp| bp.variate(variator)).collect(),
-                   instructions: instructions.into_iter().map(|bp| bp.variate(variator)).collect() },
+                   instructions: Box::new(instructions.variate(variator)) },
     Self::Reference {} => Self::Reference {}
     }
  }

@@ -536,8 +536,7 @@ impl Compartment
   for ubp in components
       { compartment.components.push( Compartment::make(ubp, root, factory)? ); }
 
-  for ubp in instructions
-    { compartment.make_instructions(&ubp, root, factory)?; }
+  compartment.make_instructions(instructions, root, factory)?;
 
   Ok( Box::new(compartment) )
  }

@@ -100,9 +100,12 @@ class BluePrint:
         bp = cls()
         bp.btype = cls.ARCHITECTURE
         bp.components = []
-        bp.value = []
+        bp.value = cls()
+        bp.value.btype = cls.COMPOUND
+        bp.value.unit = ''
+        bp.value.value = []
         for jv in jvalue:
-            bp.value.append( cls.make_unit(metastr, jv) )
+            bp.value.value.append( cls.make_unit(metastr, jv) )
         return bp
 
     @classmethod
@@ -155,13 +158,12 @@ class BluePrint:
             reader.array(bp.value, cls.load)
         elif bp.btype == cls.ARCHITECTURE:
             bp.components = []
-            bp.value = []
             reader.array(bp.components, cls.load)
-            reader.array(bp.value, cls.load)
+            bp.value = cls.load(reader)
         elif bp.btype == cls.REFERENCE:
             pass
         else:
-            raise Exception(f'Unknown blueprint type {btype}')
+            raise Exception(f'Unknown blueprint type {bp.btype}')
         return bp
 
     def save(self, writer):
@@ -178,7 +180,7 @@ class BluePrint:
             writer.array(self.value, BluePrint.save)
         elif self.btype == self.ARCHITECTURE:
             writer.array(self.components, BluePrint.save)
-            writer.array(self.value, BluePrint.save)
+            self.value.save(writer)
         elif self.btype == self.REFERENCE:
             pass
         else:
@@ -194,7 +196,7 @@ class BluePrint:
         elif self.btype == self.COMPOUND:
             return "["+ f'"{self.unit}": ' + ', '.join(map(str, self.value)) +"]"
         elif self.btype == self.ARCHITECTURE:
-            return "<["+ ', '.join(map(str, self.components)) +"] + [" + ', '.join(map(str, self.value)) +"]>"
+            return "<["+ ', '.join(map(str, self.components)) + f"] | {self.value}>"
         elif self.btype == self.REFERENCE:
             return '#'
         raise Exception(f'Unknown blueprint type {self.bptype}')
