@@ -157,15 +157,6 @@ impl BluePrint
      }
  }
 
-/* pub fn get_unit(&self) -> Result<u16>
- {
-  match self
-     {
-     Self::Instruction {unit, ..} => Ok(*unit),
-     _ => Err(Error::new(ErrorKind::InvalidData, "Instructions required"))
-     }
- }*/
-
  pub fn get_f32(&self, index: usize) -> Result<f32>
  {
   let item = &(self.get_instructions()?)[index];

@@ -117,7 +117,6 @@ impl Actor
    let mut reader = Reader::new(source);
    actor.body.id = reader.u64()?;
    actor.body.home = reader.u64()?;
-   log::debug!("Actor {} loading", actor.body.id);
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
    let factory = UnitFactory::default();
