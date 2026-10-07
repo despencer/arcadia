@@ -1,15 +1,15 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use std::io::{Result, Read, Write, Error, ErrorKind};
+use std::io::{Result, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::storage::{Reader,Writer};
-use crate::arcadia::actors::{Actor, ActorLifecycle};
+use crate::arcadia::actors::Actor;
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
+use crate::arcadia::interface;
 use crate::arcadia::interface::Interface;
 use crate::arcadia::values::Seed;
 use crate::arcadia::telemetry;
@@ -30,35 +30,34 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- interface: Interface<ActorLifecycle>,
+ interface: Interface<interface::ActorLifecycle>,
  telemetry: telemetry::Writer
 }
 
-const UNIVERSE_VERSION:u16 = 1;
-
 impl Universe
 {
- pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
+ fn version(&self) -> u16 { 1 }
+
+ pub fn load_1(&mut self, reader: &mut Reader) -> Result<()>
  {
   log::info!("Universe loading started");
-  self.timetick = source.read_u64::<LittleEndian>()?;
-  self.lastseqid = source.read_u64::<LittleEndian>()?;
+  self.timetick = reader.u64()?;
+  self.lastseqid = reader.u64()?;
   log::info!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
-  self.commune.load_1(source)?;
-  let counta = source.read_u32::<LittleEndian>()? as usize;
+  self.commune.load(reader)?;
+  let counta = reader.count()?;
   log::info!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
-     let mut reader = Reader::new(source);
-     let actor = Actor::load(&mut reader)?; let aid = actor.get_id();
+     let actor = Actor::load(reader)?; let aid = actor.get_id();
      let iactor = self.storage.actors.insert(actor);
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
      }
-  let countw = source.read_u32::<LittleEndian>()? as usize;
+  let countw = reader.count()?;
   log::info!("Universe reading {} worlds", countw);
   for _i in 0..countw
      {
-     let world = World::load_1(source, &self.storage.alookup)?; let wid = world.get_id();
+     let world = World::load(reader, &self.storage.alookup)?; let wid = world.get_id();
      let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
@@ -66,41 +65,42 @@ impl Universe
   Ok(())
  }
 
- pub fn save_1<W:Write>(&mut self, target: &mut W) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  target.write_u64::<LittleEndian>(self.timetick)?;
-  target.write_u64::<LittleEndian>(self.lastseqid)?;
-  self.commune.save_1(target)?;
-  target.write_u32::<LittleEndian>(self.storage.actors.len() as u32)?;
+  writer.u64(self.timetick)?;
+  writer.u64(self.lastseqid)?;
+  self.commune.save( writer)?;
   log::info!("Universe saving {} actors", self.storage.actors.len());
-  let mut writer = Writer::new(target);
+  writer.count(self.storage.actors.len())?;
   for actor in self.storage.actors.iterdata()
-      { actor.save(&mut writer)?; }
-  target.write_u32::<LittleEndian>(self.storage.worlds.len() as u32)?;
+      { actor.save(writer)?; }
+  writer.count(self.storage.worlds.len())?;
   for world in self.storage.worlds.iterdata()
-      { world.save_1(target, &self.storage.actors)?; }
+      { world.save(writer, &self.storage.actors)?; }
   Ok(())
  }
 
  pub fn load(&mut self, filename: &String) -> Result<()>
  {
    let mut source = File::open(filename)?;
-   let version = source.read_u16::<LittleEndian>()?;
+   let mut reader = Reader::new(&mut source);
+   let version = reader.u16()?;
    match version
    {
-     1 => { self.load_1(&mut source) }
-     _ => { return Err(Error::new(ErrorKind::InvalidData, "Unknown version")); }
+     1 => { self.load_1(&mut reader) }
+     _ => { return Err(Error::new(ErrorKind::InvalidData, "Unknown universe version")); }
    }?;
 
    println!("Universe {:?} loaded, {:?} actors", filename, self.storage.actors.len());
    Ok(())
  }
 
- pub fn save(&mut self, filename: &String) -> Result<()>
+ pub fn savefile(&mut self, filename: &String) -> Result<()>
  {
   let mut target = File::create(filename)?;
-  target.write_u16::<LittleEndian>(UNIVERSE_VERSION)?;
-  self.save_1(&mut target)?;
+  let mut writer = Writer::new(&mut target);
+  writer.u16(self.version())?;
+  self.save(&mut writer)?;
   println!("Universe {:?} saved", filename);
   Ok(())
  }
@@ -117,8 +117,8 @@ impl Universe
      {
      match self.interface.get()
        {
-         ActorLifecycle::Death {id} => self.drop_actor(id),
-         ActorLifecycle::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
+         interface::ActorLifecycle::Death {id} => self.drop_actor(id),
+         interface::ActorLifecycle::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
          _ => {}
        }
      }
@@ -165,7 +165,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
-                            realm: Realm::default(), interface: Interface::<ActorLifecycle>::default(),
+                            realm: Realm::default(), interface: Interface::<interface::ActorLifecycle>::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();
@@ -182,7 +182,7 @@ impl Universe
         }
    }
    println!("Universe finishes at {:?}", uni.timetick);
-   uni.save(&filename).expect("Could not save an Universe");
+   uni.savefile(&filename).expect("Could not save an Universe");
  }
 
 }

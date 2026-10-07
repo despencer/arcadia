@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use crate::arcadia::values::Seed;
 
 #[derive(Default)]
 pub struct Interface<T>
@@ -24,3 +25,11 @@ impl<T> Interface<T>
  }
 }
 
+#[derive(Default)]
+pub enum ActorLifecycle
+{
+ #[default]
+ Empty,
+ Death { id: u64 },
+ Make { parent: u64, home: u64, seed: Seed  }
+}

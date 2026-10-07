@@ -1,17 +1,8 @@
 use std::io::{Result, Error, ErrorKind};
-use crate::arcadia::interface::Interface;
+use crate::arcadia::interface::{Interface, ActorLifecycle};
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer};
-
-#[derive(Default)]
-pub enum ActorLifecycle
-{
- #[default]
- Empty,
- Death { id: u64 },
- Make { parent: u64, home: u64, seed: Seed  }
-}
 
 #[derive(Default)]
 pub enum ActorInside

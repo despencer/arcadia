@@ -1,9 +1,9 @@
-use std::io::{Result, Read, Write, Error, ErrorKind};
+use std::io::{Result, Error, ErrorKind};
 use std::collections::HashMap;
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::actors::{Actor, ActorLifecycle};
-use crate::arcadia::interface::Interface;
+use crate::arcadia::actors::Actor;
+use crate::arcadia::interface::{Interface, ActorLifecycle};
 use crate::arcadia::control::Sampler;
 
 #[derive(Default)]
@@ -41,15 +41,15 @@ impl Container
     { self.actors.remove(index); }
  }
 
- pub fn load_1<R:Read>(&mut self, source: &mut R) -> Result<()>
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
-  self.billing = source.read_u32::<LittleEndian>()?;
+  self.billing = reader.u32()?;
   Ok(())
  }
 
- pub fn save_1<W:Write>(&mut self, target: &mut W) -> Result<()>
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  target.write_u32::<LittleEndian>(self.billing)?;
+  writer.u32(self.billing)?;
   Ok(())
  }
 
@@ -106,17 +106,17 @@ impl World
     }
  }
 
- pub fn load_1<R:Read>(source: &mut R, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
+ pub fn load(source: &mut Reader, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
  {
    log::debug!("World loading");
    let mut world = World::default();
-   world.id = source.read_u64::<LittleEndian>()?;
-   world.production = source.read_u32::<LittleEndian>()?;
-   let counta = source.read_u32::<LittleEndian>()? as usize;
+   world.id = source.u64()?;
+   world.production = source.u32()?;
+   let counta = source.count()?;
    log::debug!("World {} loading, {} production, {} actors", world.id,  world.production, counta);
    for _i in 0..counta
      {
-     let aid = source.read_u64::<LittleEndian>()?;
+     let aid = source.u64()?;
      if let Some(iactor) = alookup.get(&aid)
          { world.actors.push(*iactor); }
      else
@@ -127,14 +127,14 @@ impl World
    Ok(world)
  }
 
- pub fn save_1<W:Write>(&self, target: &mut W, actors: &Depot<Actor>) -> Result<()>
+ pub fn save(&self, target: &mut Writer, actors: &Depot<Actor>) -> Result<()>
  {
-   target.write_u64::<LittleEndian>(self.id)?;
-   target.write_u32::<LittleEndian>(self.production)?;
+   target.u64(self.id)?;
+   target.u32(self.production)?;
    log::debug!("World {} saving, {} actors", self.id, self.actors.len());
-   target.write_u32::<LittleEndian>(self.actors.len() as u32)?;
+   target.count(self.actors.len())?;
    for iactor in self.actors.iter()
-      { target.write_u64::<LittleEndian>(actors.get(*iactor).unwrap().get_id())?; }
+      { target.u64(actors.get(*iactor).unwrap().get_id())?; }
    Ok(())
  }
 }
