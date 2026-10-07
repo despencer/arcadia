@@ -26,7 +26,7 @@ impl<T> Interface<T>
 }
 
 #[derive(Default)]
-pub enum ActorLifecycle
+pub enum Actor
 {
  #[default]
  Empty,

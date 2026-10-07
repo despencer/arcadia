@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::actors::Actor;
-use crate::arcadia::interface::{Interface, ActorLifecycle};
+use crate::arcadia::interface::Interface;
+use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
 #[derive(Default)]
@@ -21,7 +22,7 @@ pub struct Realm
 
 impl Container
 {
- pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut Interface<ActorLifecycle>)
+ pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut Interface<interface::Actor>)
  {
   for a in &self.actors
     {

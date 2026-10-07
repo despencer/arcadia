@@ -1,5 +1,6 @@
 use std::io::{Result, Error, ErrorKind};
-use crate::arcadia::interface::{Interface, ActorLifecycle};
+use crate::arcadia::interface::Interface;
+use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer};
@@ -47,13 +48,13 @@ impl Body
    }
  }
 
- pub fn tick(&mut self, outside: &mut Interface<ActorLifecycle>)
+ pub fn tick(&mut self, outside: &mut Interface<interface::Actor>)
  {
   while self.inside.len() > 0
      {
      match self.inside.get()
        {
-         ActorInside::Make {seed} => outside.put( ActorLifecycle::Make { parent: self.id, home: self.home, seed:seed } ),
+         ActorInside::Make {seed} => outside.put( interface::Actor::Make { parent: self.id, home: self.home, seed:seed } ),
          _ => {}
        }
      }
@@ -75,18 +76,18 @@ impl Actor
  pub fn get_id(&self) -> u64
  { self.body.id }
 
- pub fn tick(&mut self, interface: &mut Interface<ActorLifecycle>)
+ pub fn tick(&mut self, interface: &mut Interface<interface::Actor>)
  {
   self.body.tick(interface);
   self.control.tick(&mut self.body);
  }
 
- pub fn billing(&mut self, amount: u32, interface: &mut Interface<ActorLifecycle>)
+ pub fn billing(&mut self, amount: u32, interface: &mut Interface<interface::Actor>)
  {
   if self.body.credits >= amount
     {  self.body.credits -= amount; }
   else
-    { self.body.credits = 0; interface.put( ActorLifecycle::Death {id : self.body.id} ); }
+    { self.body.credits = 0; interface.put( interface::Actor::Death {id : self.body.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)

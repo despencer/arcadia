@@ -30,7 +30,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- interface: Interface<interface::ActorLifecycle>,
+ interface: Interface<interface::Actor>,
  telemetry: telemetry::Writer
 }
 
@@ -117,8 +117,8 @@ impl Universe
      {
      match self.interface.get()
        {
-         interface::ActorLifecycle::Death {id} => self.drop_actor(id),
-         interface::ActorLifecycle::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
+         interface::Actor::Death {id} => self.drop_actor(id),
+         interface::Actor::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
          _ => {}
        }
      }
@@ -165,7 +165,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
-                            realm: Realm::default(), interface: Interface::<interface::ActorLifecycle>::default(),
+                            realm: Realm::default(), interface: Interface::<interface::Actor>::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();
