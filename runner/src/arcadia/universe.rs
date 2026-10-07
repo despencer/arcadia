@@ -30,7 +30,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
- interface: Interface<interface::Actor>,
+ requests: Interface<interface::Actor>,
  telemetry: telemetry::Writer
 }
 
@@ -111,11 +111,11 @@ impl Universe
  pub fn tick(&mut self)
  {
   self.timetick += 1;
-  self.commune.tick(&mut self.storage.actors, &mut self.interface);
+  self.commune.tick(&mut self.storage.actors, &mut self.requests);
   self.realm.tick(&mut self.storage.worlds, &mut self.storage.actors);
-  while self.interface.len() > 0
+  while self.requests.len() > 0
      {
-     match self.interface.get()
+     match self.requests.get()
        {
          interface::Actor::Death {id} => self.drop_actor(id),
          interface::Actor::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
@@ -165,7 +165,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
-                            realm: Realm::default(), interface: Interface::<interface::Actor>::default(),
+                            realm: Realm::default(), requests: Interface::<interface::Actor>::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();
