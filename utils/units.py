@@ -64,7 +64,7 @@ class Port:
     @classmethod
     def load(cls, jp, structure):
         p = cls()
-        p.name = jp['name']
+        p.name = "/generation/" + jp['name']
         p.value = structure.get_value(jp['type'])
         return p
 
