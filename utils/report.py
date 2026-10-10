@@ -3,7 +3,7 @@
 import arcadia
 
 def values(actor):
-    return "values: "+ ', '.join(map(str, actor.control.values.values))
+    return "values: " + ', '.join(map(str, actor.control.values.values))
 
 def unit_params(unit):
     return f'${unit.meta.id}:['+ ', '.join(map(lambda x: str(getattr(unit, x.name))  , unit.meta.members))  +']'
@@ -11,8 +11,12 @@ def unit_params(unit):
 def params(actor):
     return "params: "+ ', '.join(map(unit_params, actor.control.units))
 
+def messages(alist):
+    return "[" + ', '.join(map(str, alist)) + "]"
+
 def report(uni):
     print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
+    print(f'Requests: {messages(uni.requests)}')
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')
     for a in uni.actors:

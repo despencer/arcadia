@@ -76,18 +76,18 @@ impl Actor
  pub fn get_id(&self) -> u64
  { self.body.id }
 
- pub fn tick(&mut self, interface: &mut Interface<interface::Actor>)
+ pub fn tick(&mut self, requests: &mut Interface<interface::Actor>)
  {
-  self.body.tick(interface);
+  self.body.tick(requests);
   self.control.tick(&mut self.body);
  }
 
- pub fn billing(&mut self, amount: u32, interface: &mut Interface<interface::Actor>)
+ pub fn billing(&mut self, amount: u32, requests: &mut Interface<interface::Actor>)
  {
   if self.body.credits >= amount
     {  self.body.credits -= amount; }
   else
-    { self.body.credits = 0; interface.put( interface::Actor::Death {id : self.body.id} ); }
+    { self.body.credits = 0; requests.put( interface::Actor::Drop {id : self.body.id} ); }
  }
 
  pub fn feed(&mut self, amount: u32)

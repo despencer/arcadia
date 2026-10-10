@@ -61,3 +61,23 @@ values:
      id: 3
    - type: blueprint
      id: 4
+interfaces:
+   - message: Actor
+     variants:
+          - type: Empty
+            id: 1
+            parameters: []
+          - type: Drop
+            id: 2
+            parameters:
+                - name: id
+                  type: u64
+          - type: Make
+            id: 3
+            parameters:
+                - name: parent
+                  type: u64
+                - name: home
+                  type: u64
+                - name: seed
+                  type: seeds

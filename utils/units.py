@@ -106,13 +106,62 @@ class Unit:
             unit.ports.append( reader.u8() )
         return unit
 
-    def write(self, writer, unit):
+    def write(self, unit, writer):
         writer.u16(self.id)
         writer.u8(self.version)
         for m in self.members:
             m.kind.write(writer, getattr(unit, m.name))
         for p in unit.ports:
             writer.u8(p)
+
+class Variant:
+    def __init__(self):
+        self.name = None
+        self.type = None
+        self.id = None
+        self.parameters = []
+
+    @classmethod
+    def load(cls, jvariant, structure):
+        var = cls()
+        var.name = jvariant['type']
+        var.id = jvariant['id']
+        for jp in jvariant['parameters']:
+            var.parameters.append( Member.load(jp, structure) )
+        return var
+
+    def read(self, reader):
+        message = arcadia.Message(self)
+        for p in self.parameters:
+            setattr(message, p.name, p.kind.read(reader) )
+        return message
+
+    def write(self, message, writer):
+        writer.u8(self.type.version)
+        writer.u8(self.id)
+        for p in self.parameters:
+            p.kind.write(writer, getattr(message, p.name))
+
+class MessageType:
+    def __init__(self):
+        self.version = 1
+        self.name = None
+        self.variants = {}
+
+    @classmethod
+    def load(cls, jmessage, structure):
+        message = cls()
+        message.name = jmessage['message']
+        for jvar in jmessage['variants']:
+            var = Variant.load(jvar, structure)
+            var.type = message
+            message.variants[var.id] = var
+        return message
+
+    def read(self, reader):
+        if self.version != reader.u8():
+            raise Exception(f'Wrong version of message {self.name}')
+        return self.variants[reader.u8()].read(reader)
 
 class Value:
     def __init__(self):
@@ -139,12 +188,13 @@ class Value:
 
 class Structure:
     def __init__(self):
-        self.kinds = { 'u32':SimpleType('u32', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
+        self.kinds = { 'u32':SimpleType('u32', 0), 'u64':SimpleType('u64', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
                        'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)), 'blueprint': CommonType('Blueprint', self, arcadia.BluePrint) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}
         self.valuetypes = {}
+        self.messages = {}
 
     def get_kind(self, typename):
         return self.kinds[typename]
@@ -164,6 +214,9 @@ class Structure:
             unit = Unit.load(junit, self)
             self.unitids[unit.id] = unit
             self.unitnames[unit.name] = unit
+        for jmessage in jstr['interfaces']:
+            message = MessageType.load(jmessage, self)
+            self.messages[message.name] = message
 
     def make_unit(self, junitdef, control):
         unit = self.unitnames[ junitdef['type'] ].make(junitdef)

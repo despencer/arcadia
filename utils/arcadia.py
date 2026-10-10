@@ -265,7 +265,7 @@ class Unit:
         self.ports = []
 
     def save(self, writer):
-        self.meta.write(writer, self)
+        self.meta.write(self, writer)
 
 class Compartment:
     def __init__(self):
@@ -288,6 +288,13 @@ class Compartment:
 
     def has_value(self, name):
         return self.values.has_value(name)
+
+class Message:
+    def __init__(self, meta):
+        self.meta = meta
+
+    def save(self, writer):
+        self.meta.write(self, writer)
 
 class Actor:
     def __init__(self):
@@ -353,6 +360,7 @@ class Universe:
         self.billing = 0
         self.actors = []
         self.worlds = []
+        self.requests = []
 
     def genid(self):
         self.lastseqid += 1
@@ -385,6 +393,7 @@ class Universe:
         reader.array(uni.worlds, World.load)
         for a in uni.actors:
             a.update(reader)
+        reader.array(uni.requests, reader.metastr.messages['Actor'].read)
         return uni
 
     def save(self, fs):
@@ -395,6 +404,7 @@ class Universe:
         writer.u32(self.billing)
         writer.array(self.actors, Actor.save)
         writer.array(self.worlds, World.save)
+        writer.array(self.requests, Message.save)
 
 def load(fs):
     return Universe.load(fs)

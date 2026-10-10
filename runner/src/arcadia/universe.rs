@@ -61,6 +61,7 @@ impl Universe
      let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
+  self.requests.load(reader)?;
   log::info!("Universe loading finished");
   Ok(())
  }
@@ -77,6 +78,7 @@ impl Universe
   writer.count(self.storage.worlds.len())?;
   for world in self.storage.worlds.iterdata()
       { world.save(writer, &self.storage.actors)?; }
+  self.requests.save(writer)?;
   Ok(())
  }
 
@@ -117,7 +119,7 @@ impl Universe
      {
      match self.requests.get()
        {
-         interface::Actor::Death {id} => self.drop_actor(id),
+         interface::Actor::Drop {id} => self.drop_actor(id),
          interface::Actor::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
          _ => {}
        }
