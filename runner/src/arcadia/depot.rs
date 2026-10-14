@@ -1,3 +1,6 @@
+use std::io::{Result};
+use crate::arcadia::storage::{Reader,Writer,Factory,Stored};
+
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DepotIndex(usize);
 
@@ -99,4 +102,36 @@ impl<'a, T> Iterator for IterData<'a, T>
           return Some(item.as_ref().unwrap());
          }
       }
+}
+
+impl <T:Factory> Depot<T>
+{
+ fn load(&mut self, reader: &mut Reader) -> Result<()>
+ {
+  self.data.clear(); self.removed_indexes.clear();
+  for index in 0..reader.count()?
+    {
+    if reader.bool()?
+        { self.data.push( Some(T::load(reader)?) ); }
+    else
+        { self.data.push( None ); self.removed_indexes.push( DepotIndex(index as usize) ); }
+    }
+  Ok(())
+ }
+}
+
+impl <T:Stored> Depot<T>
+{
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  writer.count(self.data.len())?;
+  for index in 0..self.data.len()
+     {
+     if let Some(item) = &self.data[index]
+         { writer.bool(true)?; item.save(writer)?; }
+     else
+         { writer.bool(false)?; }
+     }
+  Ok(())
+ }
 }
