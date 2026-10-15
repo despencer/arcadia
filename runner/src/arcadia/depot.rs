@@ -4,19 +4,22 @@ use crate::arcadia::storage::{Reader,Writer,Factory,Stored};
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DepotIndex(usize);
 
-#[derive(Default)]
+//#[derive(Default)]
 pub struct Depot<T: Sized>
 {
     data: Vec<Option<T>>,
     removed_indexes: Vec<DepotIndex>,
 }
 
+impl<T> Default for Depot<T>
+{
+  fn default() -> Self
+        { Self { data: Vec::new(), removed_indexes: Default::default(), } }
+}
+
 #[allow(dead_code)]
 impl<T: Sized> Depot<T>
 {
-    pub fn new() -> Self
-        { Self { data: Vec::new(), removed_indexes: Default::default(), } }
-
     pub fn insert(&mut self, item: T) -> DepotIndex
         {
           if let Some(index) = self.removed_indexes.pop()
@@ -106,7 +109,7 @@ impl<'a, T> Iterator for IterData<'a, T>
 
 impl <T:Factory> Depot<T>
 {
- fn load(&mut self, reader: &mut Reader) -> Result<()>
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
   self.data.clear(); self.removed_indexes.clear();
   for index in 0..reader.count()?

@@ -77,6 +77,12 @@ impl<'a> Reader<'a>
     { value.push( T::load(self)? ); }
   Ok(())
  }
+ pub fn load_vecdeque<T:Factory>(&mut self) -> Result<VecDeque<T>>
+ {
+  let mut vd = VecDeque::new();
+  self.vecdeque(&mut vd)?;
+  Ok(vd)
+ }
 }
 
 pub struct Writer<'a>

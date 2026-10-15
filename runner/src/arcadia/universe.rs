@@ -10,7 +10,7 @@ use crate::arcadia::actors::Actor;
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::interface;
-use crate::arcadia::interface::Interface;
+use crate::arcadia::interface::{Interface, Hub};
 use crate::arcadia::values::Seed;
 use crate::arcadia::telemetry;
 
@@ -30,6 +30,7 @@ pub struct Universe
  storage: Storage,
  commune: Container,
  realm: Realm,
+ communications: Hub,
  requests: Interface<interface::Actor>,
  telemetry: telemetry::Writer
 }
@@ -62,6 +63,7 @@ impl Universe
      self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
   self.requests.load(reader)?;
+  self.communications.load(reader)?;
   log::info!("Universe loading finished");
   Ok(())
  }
@@ -79,6 +81,7 @@ impl Universe
   for world in self.storage.worlds.iterdata()
       { world.save(writer, &self.storage.actors)?; }
   self.requests.save(writer)?;
+  self.communications.save(writer)?;
   Ok(())
  }
 
@@ -167,6 +170,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Container::default(),
+                            communications: Hub::default(),
                             realm: Realm::default(), requests: Interface::<interface::Actor>::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
    uni.load(&filename).expect("Could not load an Universe");
