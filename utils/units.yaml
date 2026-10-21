@@ -81,3 +81,10 @@ interfaces:
                   type: u64
                 - name: seed
                   type: seeds
+   - message: Universe
+     variants:
+          - type: Actor
+            id: 1
+            parameters:
+                - name: actor
+                  type: Message.Actor

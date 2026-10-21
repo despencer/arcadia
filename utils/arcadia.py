@@ -1,85 +1,10 @@
 import os
-import struct
 import arhistory
 import units
+import comms
+import storage
 
-msb='little'
 UNIVERSE_VERSION=1
-
-class Reader:
-    def __init__(self, fs, metastr):
-        self.fs = fs
-        self.metastr = metastr
-        self.actors = {}
-        self.worlds = {}
-
-    def read_u(self, size):
-        return int.from_bytes(self.fs.read(size), msb)
-
-    def u8(self):
-        return self.read_u(1)
-
-    def u16(self):
-        return self.read_u(2)
-
-    def u32(self):
-        return self.read_u(4)
-
-    def u64(self):
-        return self.read_u(8)
-
-    def f32(self):
-        return struct.unpack('<f', self.fs.read(4))[0]
-
-    def bool(self):
-        return (self.u8() != 0)
-
-    def utf8(self):
-        return self.fs.read(self.u16()).decode('utf-8')
-
-    def array(self, alist, reader):
-        acount = self.u32()
-        alist.clear()
-        for i in range(acount):
-            alist.append( reader(self) )
-
-class Writer:
-    def __init__(self, fs):
-        self.fs = fs
-
-    def write_u(self, value, size):
-        self.fs.write( value.to_bytes(size, msb) )
-
-    def u8(self, value):
-        return self.write_u(value, 1)
-
-    def u16(self, value):
-        return self.write_u(value, 2)
-
-    def u32(self, value):
-        return self.write_u(value, 4)
-
-    def u64(self, value):
-        return self.write_u(value, 8)
-
-    def f32(self, value):
-        return self.fs.write( struct.pack('<f', value) )
-
-    def bool(self, value):
-        if value:
-            self.u8(1)
-        else:
-            self.u8(0)
-
-    def utf8(self, value):
-        data = value.encode('utf-8')
-        self.u16(len(data))
-        self.fs.write(data)
-
-    def array(self, alist, writer):
-        self.u32(len(alist))
-        for item in alist:
-            writer(item, self)
 
 class BluePrint:
     FVALUE = 1
@@ -289,13 +214,6 @@ class Compartment:
     def has_value(self, name):
         return self.values.has_value(name)
 
-class Message:
-    def __init__(self, meta):
-        self.meta = meta
-
-    def save(self, writer):
-        self.meta.write(self, writer)
-
 class Actor:
     def __init__(self):
         self.id = 0
@@ -361,6 +279,7 @@ class Universe:
         self.actors = []
         self.worlds = []
         self.requests = []
+        self.commhub = comms.Hub()
 
     def genid(self):
         self.lastseqid += 1
@@ -382,7 +301,7 @@ class Universe:
     @classmethod
     def load(cls, fs):
         uni = cls()
-        reader = Reader(fs, uni.units)
+        reader = storage.Reader(fs, uni.units)
         version = reader.u16()
         if version != UNIVERSE_VERSION:
             raise Exception(f"Unknown version {version}")
@@ -394,17 +313,19 @@ class Universe:
         for a in uni.actors:
             a.update(reader)
         reader.array(uni.requests, reader.metastr.messages['Actor'].read)
+        uni.commhub = comms.Hub.load(reader)
         return uni
 
     def save(self, fs):
-        writer = Writer(fs)
+        writer = storage.Writer(fs)
         writer.u16(UNIVERSE_VERSION)
         writer.u64(self.timetick)
         writer.u64(self.lastseqid)
         writer.u32(self.billing)
         writer.array(self.actors, Actor.save)
         writer.array(self.worlds, World.save)
-        writer.array(self.requests, Message.save)
+        writer.array(self.requests, comms.Message.save)
+        self.commhub.save(writer)
 
 def load(fs):
     return Universe.load(fs)

@@ -16,6 +16,10 @@ def messages(alist):
 
 def report(uni):
     print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
+    print('Communication Hub:')
+    for c in uni.commhub.channels.data:
+        if c != None:
+            print('Channel')
     print(f'Requests: {messages(uni.requests)}')
     for w in uni.worlds:
         print(f'World #{w.id}, production {w.production}')

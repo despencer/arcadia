@@ -1,4 +1,5 @@
 import yaml
+import comms
 import arcadia
 
 class SimpleType:
@@ -131,7 +132,7 @@ class Variant:
         return var
 
     def read(self, reader):
-        message = arcadia.Message(self)
+        message = comms.Message(self)
         for p in self.parameters:
             setattr(message, p.name, p.kind.read(reader) )
         return message
@@ -217,6 +218,7 @@ class Structure:
         for jmessage in jstr['interfaces']:
             message = MessageType.load(jmessage, self)
             self.messages[message.name] = message
+            self.kinds['Message.' + message.name] = message
 
     def make_unit(self, junitdef, control):
         unit = self.unitnames[ junitdef['type'] ].make(junitdef)

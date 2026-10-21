@@ -1,5 +1,5 @@
 use std::io::{Result, Error, ErrorKind};
-use crate::arcadia::interface::Interface;
+use crate::arcadia::interface::OldInterface;
 use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
@@ -20,7 +20,7 @@ pub struct Body
  home: u64,
  credits: u32,
  reserve: u32,
- inside: Interface<ActorInside>
+ inside: OldInterface<ActorInside>
 }
 
 impl Body
@@ -48,7 +48,7 @@ impl Body
    }
  }
 
- pub fn tick(&mut self, outside: &mut Interface<interface::Actor>)
+ pub fn tick(&mut self, outside: &mut OldInterface<interface::Actor>)
  {
   while self.inside.len() > 0
      {
@@ -76,13 +76,13 @@ impl Actor
  pub fn get_id(&self) -> u64
  { self.body.id }
 
- pub fn tick(&mut self, requests: &mut Interface<interface::Actor>)
+ pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>)
  {
   self.body.tick(requests);
   self.control.tick(&mut self.body);
  }
 
- pub fn billing(&mut self, amount: u32, requests: &mut Interface<interface::Actor>)
+ pub fn billing(&mut self, amount: u32, requests: &mut OldInterface<interface::Actor>)
  {
   if self.body.credits >= amount
     {  self.body.credits -= amount; }

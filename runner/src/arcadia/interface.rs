@@ -1,16 +1,16 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::VecDeque;
-use crate::arcadia::depot::Depot;
+use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
 
 #[derive(Default)]
-pub struct Interface<T>
+pub struct OldInterface<T>
 {
  messages: VecDeque<T>
 }
 
-impl<T> Interface<T>
+impl<T> OldInterface<T>
 {
  pub fn put(&mut self, message: T)
  {
@@ -28,7 +28,7 @@ impl<T> Interface<T>
  }
 }
 
-impl<T:Factory> Interface<T>
+impl<T:Factory> OldInterface<T>
 {
  pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
@@ -36,7 +36,7 @@ impl<T:Factory> Interface<T>
  }
 }
 
-impl<T:Stored> Interface<T>
+impl<T:Stored> OldInterface<T>
 {
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
@@ -121,6 +121,13 @@ impl Hub
  {
   self.channels.save(writer)
  }
+}
+
+#[derive(Default)]
+pub struct Inteface
+{
+ input: Vec<DepotIndex>,
+ output: Vec<DepotIndex>
 }
 
 pub enum Universe
