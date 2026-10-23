@@ -6,7 +6,7 @@ use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
 use crate::arcadia::storage::{Reader,Writer};
-use crate::arcadia::actors::Actor;
+use crate::arcadia::actors::{ActorId, Actor};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::interface;
@@ -19,7 +19,7 @@ pub struct Storage
 {
  pub actors: Depot<Actor>,
  pub worlds: Depot<World>,
- pub alookup: HashMap<u64, DepotIndex>,
+ pub alookup: HashMap<ActorId, DepotIndex>,
  pub wlookup: HashMap<u64, DepotIndex>
 }
 
@@ -130,7 +130,7 @@ impl Universe
      }
  }
 
- pub fn lookup_actor(&self, id: u64) -> DepotIndex
+ pub fn lookup_actor(&self, id: ActorId) -> DepotIndex
  {
   *self.storage.alookup.get(&id).unwrap()
  }
@@ -146,9 +146,9 @@ impl Universe
   self.lastseqid
  }
 
- pub fn make_actor(&mut self, parent: u64, home: u64, seed: &mut Seed)
+ pub fn make_actor(&mut self, parent: ActorId, home: u64, seed: &mut Seed)
  {
-  log::info!("New actor request from {} with {} credits", parent, seed.credits);
+  log::info!("New actor request from {:?} with {} credits", parent, seed.credits);
   let actor = Actor::new(self.gen_id(), home, seed); let aid = actor.get_id();
   let iactor = self.storage.actors.insert(actor);
   self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
@@ -157,9 +157,9 @@ impl Universe
   self.telemetry.write(self.timetick, telemetry::Message::Birth { id: aid, parent, home } ).unwrap();
  }
 
- pub fn drop_actor(&mut self, id: u64)
+ pub fn drop_actor(&mut self, id: ActorId)
  {
-  log::info!("Drop actor {} request", id);
+  log::info!("Drop actor {:?} request", id);
   let iactor = self.lookup_actor(id);
   self.commune.drop_actor(iactor);
   self.realm.drop_actor(&mut self.storage.worlds, iactor);

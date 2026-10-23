@@ -1,5 +1,6 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::VecDeque;
+use crate::arcadia::actors::ActorId;
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
@@ -177,8 +178,8 @@ pub enum Actor
 {
  #[default]
  Empty,
- Drop { id: u64 },
- Make { parent: u64, home: u64, seed: Seed  },
+ Drop { id: ActorId },
+ Make { parent: ActorId, home: u64, seed: Seed  },
  Feed { id: u64, amount: u32 },
  Bill { id: u64, amount: u32 }
 }
@@ -205,8 +206,8 @@ impl Factory for Actor
   let act = match utype
         {
         Self::EMPTY => Self::Empty { },
-        Self::DROP => Self::Drop { id: reader.u64()? },
-        Self::MAKE => Self::Make { parent: reader.u64()?, home : reader.u64()?, seed: Seed::load(reader)? },
+        Self::DROP => Self::Drop { id: ActorId::load(reader)? },
+        Self::MAKE => Self::Make { parent: ActorId::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
         Self::FEED => Self::Feed { id: reader.u64()?, amount: reader.u32()? },
         Self::BILL => Self::Feed { id: reader.u64()?, amount: reader.u32()? },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actor interface"))
@@ -223,9 +224,9 @@ impl Stored for Actor
   match self
     {
     Self::Empty => { writer.u8(Self::EMPTY)? },
-    Self::Drop {id} => { writer.u8(Self::DROP)?; writer.u64(*id)? },
+    Self::Drop {id} => { writer.u8(Self::DROP)?; id.save(writer)? },
     Self::Make {parent, home, seed} =>
-           { writer.u8(Self::MAKE)?; writer.u64(*parent)?;
+           { writer.u8(Self::MAKE)?; parent.save(writer)?;
              writer.u64(*home)?; seed.save(writer)? },
     Self::Feed {id, amount} => { writer.u8(Self::FEED)?; writer.u64(*id)?; writer.u32(*amount)? },
     Self::Bill {id, amount} => { writer.u8(Self::BILL)?; writer.u64(*id)?; writer.u32(*amount)? },

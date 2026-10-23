@@ -5,6 +5,19 @@ use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer};
 
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ActorId(u64);
+
+impl ActorId
+{
+ pub fn new(id: u64) -> Self
+  { ActorId(id) }
+ pub fn load(reader: &mut Reader) -> Result<Self>
+  { Ok(ActorId(reader.u64()?)) }
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
+  { writer.u64(self.0) }
+}
+
 #[derive(Default)]
 pub enum ActorInside
 {
@@ -16,7 +29,7 @@ pub enum ActorInside
 #[derive(Default)]
 pub struct Body
 {
- pub id: u64,
+ pub id: ActorId,
  home: u64,
  credits: u32,
  reserve: u32,
@@ -73,7 +86,7 @@ impl Actor
 {
  fn version(&self) -> u8 { 1 }
 
- pub fn get_id(&self) -> u64
+ pub fn get_id(&self) -> ActorId
  { self.body.id }
 
  pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>)
@@ -98,7 +111,7 @@ impl Actor
  pub fn new(id: u64, home: u64,  seed: &mut Seed) -> Actor
  {
   let mut actor = Actor::default();
-  actor.body.id = id;
+  actor.body.id = ActorId::new(id);
   actor.body.home = home;
   actor.body.credits = seed.credits;
   std::mem::swap(&mut actor.control, &mut seed.seed);
@@ -110,21 +123,21 @@ impl Actor
    let mut actor = Actor::default();
    if reader.u8()? > actor.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown actor version")); }
-   actor.body.id = reader.u64()?;
+   actor.body.id = ActorId(reader.u64()?);
    actor.body.home = reader.u64()?;
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
    let factory = UnitFactory::default();
    actor.control = Compartment::load(reader, &factory)?;
-   log::debug!("Actor {} loaded, {} credits", actor.body.id, actor.body.credits);
+   log::debug!("Actor {} loaded, {} credits", actor.body.id.0, actor.body.credits);
    Ok(actor)
  }
 
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   log::debug!("Saving actor {}", self.body.id);
+   log::debug!("Saving actor {}", self.body.id.0);
    writer.u8(self.version())?;
-   writer.u64(self.body.id)?;
+   writer.u64(self.body.id.0)?;
    writer.u64(self.body.home)?;
    writer.u32(self.body.credits)?;
    writer.u32(self.body.reserve)?;

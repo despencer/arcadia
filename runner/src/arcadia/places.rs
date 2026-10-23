@@ -2,7 +2,7 @@ use std::io::{Result, Error, ErrorKind};
 use std::collections::HashMap;
 use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::actors::Actor;
+use crate::arcadia::actors::{ActorId, Actor};
 use crate::arcadia::interface::OldInterface;
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
@@ -107,7 +107,7 @@ impl World
     }
  }
 
- pub fn load(source: &mut Reader, alookup: &HashMap::<u64, DepotIndex>) -> Result<Self>
+ pub fn load(source: &mut Reader, alookup: &HashMap::<ActorId, DepotIndex>) -> Result<Self>
  {
    log::debug!("World loading");
    let mut world = World::default();
@@ -117,7 +117,7 @@ impl World
    log::debug!("World {} loading, {} production, {} actors", world.id,  world.production, counta);
    for _i in 0..counta
      {
-     let aid = source.u64()?;
+     let aid = ActorId::load(source)?;
      if let Some(iactor) = alookup.get(&aid)
          { world.actors.push(*iactor); }
      else
@@ -135,7 +135,7 @@ impl World
    log::debug!("World {} saving, {} actors", self.id, self.actors.len());
    target.count(self.actors.len())?;
    for iactor in self.actors.iter()
-      { target.u64(actors.get(*iactor).unwrap().get_id())?; }
+      { actors.get(*iactor).unwrap().get_id().save(target)?; }
    Ok(())
  }
 }
