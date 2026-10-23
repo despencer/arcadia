@@ -106,6 +106,16 @@ impl Stored for Channel
  }
 }
 
+impl Channel
+{
+ pub fn send(&mut self, message: Universe)
+  { self.messages.push_back(message); }
+ pub fn recv(&mut self) -> Option<Universe>
+  { self.messages.pop_front() }
+ pub fn len(&self) -> usize
+  { self.messages.len() }
+}
+
 #[derive(Default)]
 pub struct Hub
 {
@@ -122,13 +132,43 @@ impl Hub
  {
   self.channels.save(writer)
  }
+ pub fn send(&mut self, channel: DepotIndex, message: Universe)
+ {
+  self.channels.get_mut(channel).unwrap().send(message);
+ }
 }
 
-#[derive(Default)]
-pub struct Inteface
+pub struct Output<T:Sized>
 {
- input: Vec<DepotIndex>,
- output: Vec<DepotIndex>
+ target : T,
+ channel: DepotIndex
+}
+
+impl <T:Sized> Output<T>
+{
+ pub fn send(&self, hub: &mut Hub, message: Universe)
+ {
+  hub.send(self.channel, message);
+ }
+}
+
+pub struct Input
+{
+ channels: Vec<DepotIndex>,
+}
+
+impl Input
+{
+ pub fn recv(&self, hub: &mut Hub) -> Option<Universe>
+ {
+  for c in &self.channels
+    {
+    let channel = hub.channels.get_mut(*c).unwrap();
+    if channel.len() > 0
+       { return channel.recv(); }
+    }
+  None
+ }
 }
 
 pub enum Universe
@@ -180,8 +220,8 @@ pub enum Actor
  Empty,
  Drop { id: ActorId },
  Make { parent: ActorId, home: u64, seed: Seed  },
- Feed { id: u64, amount: u32 },
- Bill { id: u64, amount: u32 }
+ Feed { id: ActorId, amount: u32 },
+ Bill { id: ActorId, amount: u32 }
 }
 
 impl Actor
@@ -208,8 +248,8 @@ impl Factory for Actor
         Self::EMPTY => Self::Empty { },
         Self::DROP => Self::Drop { id: ActorId::load(reader)? },
         Self::MAKE => Self::Make { parent: ActorId::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
-        Self::FEED => Self::Feed { id: reader.u64()?, amount: reader.u32()? },
-        Self::BILL => Self::Feed { id: reader.u64()?, amount: reader.u32()? },
+        Self::FEED => Self::Feed { id: ActorId::load(reader)?, amount: reader.u32()? },
+        Self::BILL => Self::Feed { id: ActorId::load(reader)?, amount: reader.u32()? },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actor interface"))
         };
   Ok(act)
@@ -228,8 +268,8 @@ impl Stored for Actor
     Self::Make {parent, home, seed} =>
            { writer.u8(Self::MAKE)?; parent.save(writer)?;
              writer.u64(*home)?; seed.save(writer)? },
-    Self::Feed {id, amount} => { writer.u8(Self::FEED)?; writer.u64(*id)?; writer.u32(*amount)? },
-    Self::Bill {id, amount} => { writer.u8(Self::BILL)?; writer.u64(*id)?; writer.u32(*amount)? },
+    Self::Feed {id, amount} => { writer.u8(Self::FEED)?; id.save(writer)?; writer.u32(*amount)? },
+    Self::Bill {id, amount} => { writer.u8(Self::BILL)?; id.save(writer)?; writer.u32(*amount)? },
     }
   Ok( () )
  }

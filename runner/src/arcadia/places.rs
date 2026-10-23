@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::actors::{ActorId, Actor};
-use crate::arcadia::interface::OldInterface;
+use crate::arcadia::interface::{OldInterface, Output};
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
@@ -62,7 +62,8 @@ pub struct World
  id: u64,
  production: u32,
  feeder: Sampler,
- actors: Vec<DepotIndex>
+ actors: Vec<Output<ActorId>>,
+ oldactors: Vec<DepotIndex>
 }
 
 impl World
@@ -72,9 +73,9 @@ impl World
 
  pub fn tick(&mut self, actors: &mut Depot<Actor>)
  {
-  if self.actors.len() > 0
+  if self.oldactors.len() > 0
     {
-    for a in &self.actors
+    for a in &self.oldactors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }
  }
@@ -82,24 +83,24 @@ impl World
  pub fn drop_actor(&mut self, actor: DepotIndex)
  {
   log::info!("World {} drop actor {:?}", self.id, actor);
-  if let Some(index) = self.actors.iter().position(|x| *x == actor)
-    { self.actors.remove(index); }
+  if let Some(index) = self.oldactors.iter().position(|x| *x == actor)
+    { self.oldactors.remove(index); }
   self.adjust_feeder();
-  log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
+  log::info!("World {} drop actor, {} actors left", self.id, self.oldactors.len());
  }
 
  pub fn add_actor(&mut self, actor: DepotIndex)
  {
   log::info!("World {} add actor {:?}", self.id, actor);
-  self.actors.push(actor);
+  self.oldactors.push(actor);
   self.adjust_feeder();
  }
 
  pub fn adjust_feeder(&mut self)
  {
-  if self.actors.len() > 0
+  if self.oldactors.len() > 0
     {
-    self.feeder.set( self.production / (self.actors.len() as u32) );
+    self.feeder.set( self.production / (self.oldactors.len() as u32) );
     }
   else
     {
@@ -119,7 +120,7 @@ impl World
      {
      let aid = ActorId::load(source)?;
      if let Some(iactor) = alookup.get(&aid)
-         { world.actors.push(*iactor); }
+         { world.oldactors.push(*iactor); }
      else
          { return Err(Error::new(ErrorKind::InvalidData, "Actor not found")); }
      }
@@ -132,9 +133,9 @@ impl World
  {
    target.u64(self.id)?;
    target.u32(self.production)?;
-   log::debug!("World {} saving, {} actors", self.id, self.actors.len());
-   target.count(self.actors.len())?;
-   for iactor in self.actors.iter()
+   log::debug!("World {} saving, {} actors", self.id, self.oldactors.len());
+   target.count(self.oldactors.len())?;
+   for iactor in self.oldactors.iter()
       { actors.get(*iactor).unwrap().get_id().save(target)?; }
    Ok(())
  }
