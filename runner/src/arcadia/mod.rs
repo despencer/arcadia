@@ -1,3 +1,4 @@
+pub mod common;
 pub mod depot;
 pub mod universe;
 pub mod actors;
@@ -8,3 +9,4 @@ pub mod telemetry;
 pub mod storage;
 pub mod values;
 pub mod blueprints;
+pub mod commune;

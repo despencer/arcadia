@@ -5,7 +5,7 @@ use std::io::{Result, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::arcadia::storage::{Reader,Writer};
+use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::actors::{ActorId, Actor};
 use crate::arcadia::places::{World, Container, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
@@ -118,7 +118,7 @@ impl Universe
  {
   self.timetick += 1;
   self.commune.tick(&mut self.storage.actors, &mut self.requests);
-  self.realm.tick(&mut self.storage.worlds, &mut self.storage.actors);
+  self.realm.tick(&mut self.storage.worlds, &mut self.storage.actors, &mut self.communications);
   while self.requests.len() > 0
      {
      match self.requests.get()

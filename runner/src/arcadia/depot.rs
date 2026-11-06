@@ -4,6 +4,18 @@ use crate::arcadia::storage::{Reader,Writer,Factory,Stored};
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DepotIndex(usize);
 
+impl Factory for DepotIndex
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+  { Ok( DepotIndex(reader.count()?) ) }
+}
+
+impl Stored for DepotIndex
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+  { writer.count(self.0) }
+}
+
 //#[derive(Default)]
 pub struct Depot<T: Sized>
 {
@@ -61,6 +73,11 @@ impl<T: Sized> Depot<T>
            IterData { iter: self.data.iter().enumerate(), }
         }
 
+    pub fn iterdata_mut(&mut self) -> IterDataMut<'_, T>
+        {
+           IterDataMut { iter: self.data.iter_mut().enumerate(), }
+        }
+
     pub fn len(&self) -> usize
         {  self.data.len() - self.removed_indexes.len() }
 }
@@ -103,6 +120,26 @@ impl<'a, T> Iterator for IterData<'a, T>
           if item.is_none()
               { continue; }
           return Some(item.as_ref().unwrap());
+         }
+      }
+}
+
+pub struct IterDataMut<'a, T>
+{
+  iter: std::iter::Enumerate<std::slice::IterMut<'a, Option<T>>>,
+}
+
+impl<'a, T> Iterator for IterDataMut<'a, T>
+{
+  type Item = &'a mut T;
+  fn next(&mut self) -> Option<Self::Item>
+      {
+      loop
+         {
+          let (_, item) = self.iter.next()?;
+          if item.is_none()
+              { continue; }
+          return Some(item.as_mut().unwrap());
          }
       }
 }

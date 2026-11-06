@@ -140,7 +140,7 @@ impl Hub
 
 pub struct Output<T:Sized>
 {
- target : T,
+ pub target : T,
  channel: DepotIndex
 }
 
@@ -152,6 +152,21 @@ impl <T:Sized> Output<T>
  }
 }
 
+impl<T> Factory for Output<T> where T:Factory
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+ {
+   Ok( Output { target: T::load(reader)?, channel: DepotIndex::load(reader)? } )
+ }
+}
+
+impl<T> Stored for Output<T> where T:Stored
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+  { self.target.save(writer)?; self.channel.save(writer) }
+}
+
+#[derive(Default)]
 pub struct Input
 {
  channels: Vec<DepotIndex>,
@@ -249,7 +264,7 @@ impl Factory for Actor
         Self::DROP => Self::Drop { id: ActorId::load(reader)? },
         Self::MAKE => Self::Make { parent: ActorId::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
         Self::FEED => Self::Feed { id: ActorId::load(reader)?, amount: reader.u32()? },
-        Self::BILL => Self::Feed { id: ActorId::load(reader)?, amount: reader.u32()? },
+        Self::BILL => Self::Bill { id: ActorId::load(reader)?, amount: reader.u32()? },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actor interface"))
         };
   Ok(act)

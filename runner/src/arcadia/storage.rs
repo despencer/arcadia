@@ -52,9 +52,9 @@ impl<'a> Reader<'a>
  {
   Ok( Port(self.u8()? as usize) )
  }
- pub fn count(&mut self) -> Result<u32>
+ pub fn count(&mut self) -> Result<usize>
  {
-  self.u32()
+  Ok( self.u32()? as usize )
  }
  pub fn utf8(&mut self) -> Result<String>
  {

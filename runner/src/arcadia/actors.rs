@@ -1,9 +1,9 @@
 use std::io::{Result, Error, ErrorKind};
-use crate::arcadia::interface::OldInterface;
+use crate::arcadia::interface::{OldInterface, Input, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
-use crate::arcadia::storage::{Reader,Writer};
+use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ActorId(u64);
@@ -12,9 +12,17 @@ impl ActorId
 {
  pub fn new(id: u64) -> Self
   { ActorId(id) }
- pub fn load(reader: &mut Reader) -> Result<Self>
+}
+
+impl Factory for ActorId
+{
+ fn load(reader: &mut Reader) -> Result<Self>
   { Ok(ActorId(reader.u64()?)) }
- pub fn save(&self, writer: &mut Writer) -> Result<()>
+}
+
+impl Stored for ActorId
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
   { writer.u64(self.0) }
 }
 
@@ -33,7 +41,9 @@ pub struct Body
  home: u64,
  credits: u32,
  reserve: u32,
- inside: OldInterface<ActorInside>
+ inside: OldInterface<ActorInside>,
+ receiver: Input,
+ universe: 
 }
 
 impl Body
@@ -61,7 +71,7 @@ impl Body
    }
  }
 
- pub fn tick(&mut self, outside: &mut OldInterface<interface::Actor>)
+ pub fn tick(&mut self, hub: &mut Hub)
  {
   while self.inside.len() > 0
      {
@@ -71,7 +81,13 @@ impl Body
          _ => {}
        }
      }
-
+  while let Some(event) = self.receiver.recv(hub)
+    {
+    match event
+      {
+      _ => {}
+      }
+    }
  }
 }
 
@@ -89,9 +105,9 @@ impl Actor
  pub fn get_id(&self) -> ActorId
  { self.body.id }
 
- pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>)
+ pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>, hub: &mut Hub)
  {
-  self.body.tick(requests);
+  self.body.tick(requests, hub);
   self.control.tick(&mut self.body);
  }
 
@@ -117,8 +133,11 @@ impl Actor
   std::mem::swap(&mut actor.control, &mut seed.seed);
   actor
  }
+}
 
- pub fn load(reader: &mut Reader) -> Result<Self>
+impl Factory for Actor
+{
+ fn load(reader: &mut Reader) -> Result<Self>
  {
    let mut actor = Actor::default();
    if reader.u8()? > actor.version()
@@ -132,8 +151,11 @@ impl Actor
    log::debug!("Actor {} loaded, {} credits", actor.body.id.0, actor.body.credits);
    Ok(actor)
  }
+}
 
- pub fn save(&self, writer: &mut Writer) -> Result<()>
+impl Stored for Actor
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
  {
    log::debug!("Saving actor {}", self.body.id.0);
    writer.u8(self.version())?;

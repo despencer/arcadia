@@ -1,45 +1,30 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::HashMap;
-use crate::arcadia::storage::{Reader,Writer};
+use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::actors::{ActorId, Actor};
-use crate::arcadia::interface::{OldInterface, Output};
+use crate::arcadia::interface::{OldInterface, Output, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
-#[derive(Default)]
+/*#[derive(Default)]
 pub struct Container
 {
  billing: u32,
- actors: Vec<DepotIndex>
-}
-
-#[derive(Default)]
-pub struct Realm
-{
- worlds: Vec<DepotIndex>
+ oldactors: Vec<DepotIndex>,
 }
 
 impl Container
 {
- pub fn tick(&mut self, actors: &mut Depot<Actor>, dispatcher: &mut OldInterface<interface::Actor>)
- {
-  for a in &self.actors
-    {
-    actors.get_mut(*a).unwrap().billing(self.billing, dispatcher);
-    actors.get_mut(*a).unwrap().tick(dispatcher);
-    }
- }
-
  pub fn insert(&mut self, actor: DepotIndex)
  {
-  self.actors.push(actor);
+  self.oldactors.push(actor);
  }
 
  pub fn drop_actor(&mut self, actor: DepotIndex)
  {
-  if let Some(index) = self.actors.iter().position(|x| *x == actor)
-    { self.actors.remove(index); }
+  if let Some(index) = self.oldactors.iter().position(|x| *x == actor)
+    { self.oldactors.remove(index); }
  }
 
  pub fn load(&mut self, reader: &mut Reader) -> Result<()>
@@ -54,7 +39,7 @@ impl Container
   Ok(())
  }
 
-}
+}*/
 
 #[derive(Default)]
 pub struct World
@@ -71,13 +56,15 @@ impl World
  pub fn get_id(&self) -> u64
  { self.id }
 
- pub fn tick(&mut self, actors: &mut Depot<Actor>)
+ pub fn tick(&mut self, actors: &mut Depot<Actor>, hub: &mut Hub)
  {
   if self.oldactors.len() > 0
     {
     for a in &self.oldactors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }
+  for a in &self.actors
+    { a.send(hub, interface::Universe::Actor { actor: interface::Actor::Feed { id: a.target, amount:self.feeder.sample() } } ); }
  }
 
  pub fn drop_actor(&mut self, actor: DepotIndex)
@@ -141,12 +128,18 @@ impl World
  }
 }
 
+#[derive(Default)]
+pub struct Realm
+{
+ worlds: Vec<DepotIndex>
+}
+
 impl Realm
 {
- pub fn tick(&mut self, worlds: &mut Depot<World>, actors: &mut Depot<Actor>)
+ pub fn tick(&mut self, worlds: &mut Depot<World>, actors: &mut Depot<Actor>, hub: &mut Hub)
  {
   for w in &self.worlds
-    { worlds.get_mut(*w).unwrap().tick(actors); }
+    { worlds.get_mut(*w).unwrap().tick(actors, hub); }
  }
 
  pub fn insert(&mut self, world: DepotIndex)

@@ -1,6 +1,7 @@
 use std::io::{Result, BufWriter, Seek, SeekFrom};
 use std::fs::{File, OpenOptions};
-use crate::arcadia::actors::{ActorId};
+use crate::arcadia::actors::ActorId;
+use crate::arcadia::storage::Stored;
 use crate::arcadia::storage;
 
 pub enum Message
