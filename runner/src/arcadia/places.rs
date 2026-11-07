@@ -2,7 +2,7 @@ use std::io::{Result, Error, ErrorKind};
 use std::collections::HashMap;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::depot::{Depot,DepotIndex};
-use crate::arcadia::actors::{ActorId, Actor};
+use crate::arcadia::actors::Actor;
 use crate::arcadia::interface::{OldInterface, Output, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;

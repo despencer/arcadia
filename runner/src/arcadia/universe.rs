@@ -6,8 +6,9 @@ use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
-use crate::arcadia::actors::{ActorId, Actor};
-use crate::arcadia::places::{World, Container, Realm};
+use crate::arcadia::actors::Actor;
+use crate::arcadia::commune::Commune;
+use crate::arcadia::places::{World, Realm};
 use crate::arcadia::depot::{Depot,DepotIndex};
 use crate::arcadia::interface;
 use crate::arcadia::interface::{OldInterface, Hub};
@@ -17,9 +18,7 @@ use crate::arcadia::telemetry;
 #[derive(Default)]
 pub struct Storage
 {
- pub actors: Depot<Actor>,
  pub worlds: Depot<World>,
- pub alookup: HashMap<ActorId, DepotIndex>,
  pub wlookup: HashMap<u64, DepotIndex>
 }
 
@@ -28,10 +27,9 @@ pub struct Universe
  timetick: u64,
  lastseqid: u64,
  storage: Storage,
- commune: Container,
+ commune: Commune,
  realm: Realm,
  communications: Hub,
- requests: OldInterface<interface::Actor>,
  telemetry: telemetry::Writer
 }
 
@@ -130,10 +128,10 @@ impl Universe
      }
  }
 
- pub fn lookup_actor(&self, id: ActorId) -> DepotIndex
+/* pub fn lookup_actor(&self, id: ActorId) -> DepotIndex
  {
   *self.storage.alookup.get(&id).unwrap()
- }
+ }*/
 
  pub fn lookup_world(&self, id: u64) -> DepotIndex
  {
@@ -146,25 +144,20 @@ impl Universe
   self.lastseqid
  }
 
- pub fn make_actor(&mut self, parent: ActorId, home: u64, seed: &mut Seed)
+ pub fn make_actor(&mut self, parent: Id<Actor>, home: u64, seed: &mut Seed)
  {
   log::info!("New actor request from {:?} with {} credits", parent, seed.credits);
-  let actor = Actor::new(self.gen_id(), home, seed); let aid = actor.get_id();
-  let iactor = self.storage.actors.insert(actor);
-  self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
-  let homeworld =  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap();
-  homeworld.add_actor(iactor);
-  self.telemetry.write(self.timetick, telemetry::Message::Birth { id: aid, parent, home } ).unwrap();
+  let iactor = Id::Actor::new(self.gen_id());
+  self.commune.make_actor(iactor, home, seed);
+  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap().add_actor(iactor);
+  self.telemetry.write(self.timetick, telemetry::Message::Birth { id: iactor, parent, home } ).unwrap();
  }
 
- pub fn drop_actor(&mut self, id: ActorId)
+ pub fn drop_actor(&mut self, id: Id<Actor>)
  {
   log::info!("Drop actor {:?} request", id);
-  let iactor = self.lookup_actor(id);
-  self.commune.drop_actor(iactor);
-  self.realm.drop_actor(&mut self.storage.worlds, iactor);
-  self.storage.alookup.remove(&id);
-  self.storage.actors.remove(iactor);
+  self.commune.drop_actor(id);
+  self.realm.drop_actor(&mut self.storage.worlds, id);
   self.telemetry.write(self.timetick, telemetry::Message::Death { id } ).unwrap();
  }
 

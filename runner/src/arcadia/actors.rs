@@ -5,7 +5,7 @@ use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+/*#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ActorId(u64);
 
 impl ActorId
@@ -24,7 +24,7 @@ impl Stored for ActorId
 {
  fn save(&self, writer: &mut Writer) -> Result<()>
   { writer.u64(self.0) }
-}
+}*/
 
 #[derive(Default)]
 pub enum ActorInside
@@ -37,13 +37,13 @@ pub enum ActorInside
 #[derive(Default)]
 pub struct Body
 {
- pub id: ActorId,
+ pub id: Id<Actor>,
  home: u64,
  credits: u32,
  reserve: u32,
  inside: OldInterface<ActorInside>,
  receiver: Input,
- universe: 
+ commune: Id<Commune>,
 }
 
 impl Body

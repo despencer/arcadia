@@ -1,6 +1,5 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::VecDeque;
-use crate::arcadia::actors::ActorId;
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
@@ -47,7 +46,7 @@ impl<T:Stored> OldInterface<T>
 
 pub enum Party
 {
- World { id: u64 },
+ World { id: Id<World> },
 }
 
 impl Party
@@ -138,13 +137,13 @@ impl Hub
  }
 }
 
-pub struct Output<T:Sized>
+pub struct Output<T>
 {
- pub target : T,
+ pub target : Id<T>,
  channel: DepotIndex
 }
 
-impl <T:Sized> Output<T>
+impl <T> Output<T>
 {
  pub fn send(&self, hub: &mut Hub, message: Universe)
  {

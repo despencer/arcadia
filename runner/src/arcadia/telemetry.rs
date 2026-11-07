@@ -1,13 +1,13 @@
 use std::io::{Result, BufWriter, Seek, SeekFrom};
 use std::fs::{File, OpenOptions};
-use crate::arcadia::actors::ActorId;
+use crate::arcadia::common::Id;
 use crate::arcadia::storage::Stored;
 use crate::arcadia::storage;
 
 pub enum Message
 {
- Death { id: ActorId },
- Birth { id: ActorId, parent: ActorId, home: u64  }
+ Death { id: Id<Actor> },
+ Birth { id: Id<Actor>, parent: Id<Actor>, home: u64  }
 }
 
 pub struct Writer
