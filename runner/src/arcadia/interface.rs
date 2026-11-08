@@ -1,5 +1,5 @@
 use std::io::{Result, Error, ErrorKind};
-use std::collections::VecDeque;
+use std::collections::{VecDeque, BTreeMap};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
@@ -44,7 +44,7 @@ impl<T:Stored> OldInterface<T>
  }
 }
 
-pub enum Party
+/*pub enum Party
 {
  World { id: Id<World> },
 }
@@ -183,6 +183,46 @@ impl Input
     }
   None
  }
+}*/
+
+pub enum PartyType
+{
+ Universe = 1,
+ Commune = 2,
+ World = 3,
+ Actor = 4,
+}
+
+#[derive(Default)]
+pub struct Receiver
+{
+ party_type: PartyType,
+ id: u64,
+}
+
+#[derive(Default)]
+pub struct Mailbox
+{
+ receiver: Receiver,
+ messages: VecDeque<Universe>,
+}
+
+#[derive(Default)]
+pub struct Hub
+{
+ receivers: BTreeMap<u64, Receiver>,
+}
+
+impl <T> Hub
+{
+ pub fn send(&mut self, receiver: Id<T>, message: Universe)
+   { todo!() }
+ pub fn recv(&mut self, receiver: Id<T>) -> &Mailbox
+   { todo!() }
+ pub fn register(&mut self, receiver: Id<T>)
+   { todo!() }
+ pub fn remove(&mut self, receiver: Id<T>)
+   { todo!() }
 }
 
 pub enum Universe
