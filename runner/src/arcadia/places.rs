@@ -1,9 +1,9 @@
-use std::io::{Result, Error, ErrorKind};
-use std::collections::HashMap;
+use std::io::{Result};
+use crate::arcadia::common::Id;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
-use crate::arcadia::depot::{Depot,DepotIndex};
+use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
-use crate::arcadia::interface::{OldInterface, Output, Hub};
+use crate::arcadia::interface::{OldInterface, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
@@ -47,8 +47,7 @@ pub struct World
  id: u64,
  production: u32,
  feeder: Sampler,
- actors: Vec<Output<ActorId>>,
- oldactors: Vec<DepotIndex>
+ actors: Vec<Id<Actor>>,
 }
 
 impl World
@@ -56,38 +55,38 @@ impl World
  pub fn get_id(&self) -> u64
  { self.id }
 
- pub fn tick(&mut self, actors: &mut Depot<Actor>, hub: &mut Hub)
+ pub fn tick(&mut self, hub: &mut Hub)
  {
-  if self.oldactors.len() > 0
+/*  if self.oldactors.len() > 0
     {
     for a in &self.oldactors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
-    }
+    }*/
   for a in &self.actors
-    { a.send(hub, interface::Universe::Actor { actor: interface::Actor::Feed { id: a.target, amount:self.feeder.sample() } } ); }
+    { hub.send(a, interface::Universe::Actor { actor: interface::Actor::Feed { id: a.target, amount:self.feeder.sample() } } ); }
  }
 
- pub fn drop_actor(&mut self, actor: DepotIndex)
+ pub fn drop_actor(&mut self, actor: Id<Actor>)
  {
   log::info!("World {} drop actor {:?}", self.id, actor);
-  if let Some(index) = self.oldactors.iter().position(|x| *x == actor)
-    { self.oldactors.remove(index); }
+  if let Some(index) = self.actors.iter().position(|x| *x == actor)
+    { self.actors.remove(index); }
   self.adjust_feeder();
   log::info!("World {} drop actor, {} actors left", self.id, self.oldactors.len());
  }
 
- pub fn add_actor(&mut self, actor: DepotIndex)
+ pub fn add_actor(&mut self, actor: Id<Actor>)
  {
   log::info!("World {} add actor {:?}", self.id, actor);
-  self.oldactors.push(actor);
+  self.actors.push(actor);
   self.adjust_feeder();
  }
 
  pub fn adjust_feeder(&mut self)
  {
-  if self.oldactors.len() > 0
+  if self.actors.len() > 0
     {
-    self.feeder.set( self.production / (self.oldactors.len() as u32) );
+    self.feeder.set( self.production / (self.actors.len() as u32) );
     }
   else
     {
@@ -95,22 +94,13 @@ impl World
     }
  }
 
- pub fn load(source: &mut Reader, alookup: &HashMap::<ActorId, DepotIndex>) -> Result<Self>
+ pub fn load(source: &mut Reader) -> Result<Self>
  {
    log::debug!("World loading");
    let mut world = World::default();
    world.id = source.u64()?;
    world.production = source.u32()?;
-   let counta = source.count()?;
-   log::debug!("World {} loading, {} production, {} actors", world.id,  world.production, counta);
-   for _i in 0..counta
-     {
-     let aid = ActorId::load(source)?;
-     if let Some(iactor) = alookup.get(&aid)
-         { world.oldactors.push(*iactor); }
-     else
-         { return Err(Error::new(ErrorKind::InvalidData, "Actor not found")); }
-     }
+   source.vec(&mut world.actors);
    world.adjust_feeder();
    log::debug!("World {} loaded", world.id);
    Ok(world)
@@ -121,9 +111,7 @@ impl World
    target.u64(self.id)?;
    target.u32(self.production)?;
    log::debug!("World {} saving, {} actors", self.id, self.oldactors.len());
-   target.count(self.oldactors.len())?;
-   for iactor in self.oldactors.iter()
-      { actors.get(*iactor).unwrap().get_id().save(target)?; }
+   target.save(&self.actors)?;
    Ok(())
  }
 }
@@ -136,10 +124,10 @@ pub struct Realm
 
 impl Realm
 {
- pub fn tick(&mut self, worlds: &mut Depot<World>, actors: &mut Depot<Actor>, hub: &mut Hub)
+ pub fn tick(&mut self, worlds: &mut Depot<World>, hub: &mut Hub)
  {
   for w in &self.worlds
-    { worlds.get_mut(*w).unwrap().tick(actors, hub); }
+    { worlds.get_mut(*w).unwrap().tick(hub); }
  }
 
  pub fn insert(&mut self, world: DepotIndex)
@@ -147,7 +135,7 @@ impl Realm
   self.worlds.push(world);
  }
 
- pub fn drop_actor(&mut self, worlds: &mut Depot<World>, actor: DepotIndex)
+ pub fn drop_actor(&mut self, worlds: &mut Depot<World>, actor: Id<Actor>)
  {
   for w in &self.worlds
     { worlds.get_mut(*w).unwrap().drop_actor(actor); }

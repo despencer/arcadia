@@ -1,5 +1,7 @@
 use std::io::{Result, Error, ErrorKind};
-use crate::arcadia::interface::{OldInterface, Input, Hub};
+use crate::arcadia::common::Id;
+use crate::arcadia::commune::Commune;
+use crate::arcadia::interface::{OldInterface, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
@@ -42,7 +44,6 @@ pub struct Body
  credits: u32,
  reserve: u32,
  inside: OldInterface<ActorInside>,
- receiver: Input,
  commune: Id<Commune>,
 }
 
@@ -73,15 +74,24 @@ impl Body
 
  pub fn tick(&mut self, hub: &mut Hub)
  {
-  while self.inside.len() > 0
+/*  while self.inside.len() > 0
      {
      match self.inside.get()
        {
          ActorInside::Make {seed} => outside.put( interface::Actor::Make { parent: self.id, home: self.home, seed:seed } ),
          _ => {}
        }
-     }
-  while let Some(event) = self.receiver.recv(hub)
+     }*/
+  while let Some(event) = self.inside.get()
+    {
+     match self.inside.get()
+       {
+         ActorInside::Make {seed} => hub.send(self.commune, interface::Universe::Actor { actor: interface::Actor::Make { parent: self.id, home: self.home, seed:seed } } ),
+         _ => {}
+       }
+    }
+  let mailbox = hub.mailbox(&self.id);
+  while let Some(event) = mailbox.recv()
     {
     match event
       {
@@ -102,7 +112,7 @@ impl Actor
 {
  fn version(&self) -> u8 { 1 }
 
- pub fn get_id(&self) -> ActorId
+ pub fn get_id(&self) -> Id<Actor>
  { self.body.id }
 
  pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>, hub: &mut Hub)

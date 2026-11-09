@@ -6,6 +6,7 @@ use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
+use crate::arcadia::common::Id;
 use crate::arcadia::actors::Actor;
 use crate::arcadia::commune::Commune;
 use crate::arcadia::places::{World, Realm};
@@ -44,19 +45,19 @@ impl Universe
   self.lastseqid = reader.u64()?;
   log::info!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
   self.commune.load(reader)?;
-  let counta = reader.count()?;
+/*  let counta = reader.count()?;
   log::info!("Universe reading {} actors", counta);
   for _i in 0..counta
      {
      let actor = Actor::load(reader)?; let aid = actor.get_id();
      let iactor = self.storage.actors.insert(actor);
      self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
-     }
+     }*/
   let countw = reader.count()?;
   log::info!("Universe reading {} worlds", countw);
   for _i in 0..countw
      {
-     let world = World::load(reader, &self.storage.alookup)?; let wid = world.get_id();
+     let world = World::load(reader)?; let wid = world.get_id();
      let iworld = self.storage.worlds.insert(world);
      self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
      }
@@ -72,10 +73,10 @@ impl Universe
   writer.u64(self.timetick)?;
   writer.u64(self.lastseqid)?;
   self.commune.save( writer)?;
-  log::info!("Universe saving {} actors", self.storage.actors.len());
+/*  log::info!("Universe saving {} actors", self.storage.actors.len());
   writer.count(self.storage.actors.len())?;
   for actor in self.storage.actors.iterdata()
-      { actor.save(writer)?; }
+      { actor.save(writer)?; }*/
   writer.count(self.storage.worlds.len())?;
   for world in self.storage.worlds.iterdata()
       { world.save(writer, &self.storage.actors)?; }

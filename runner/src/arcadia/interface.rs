@@ -1,8 +1,10 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::{VecDeque, BTreeMap};
+use crate::arcadia::common::Id;
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
-use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
+use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
+use crate::arcadia::actors;
 
 #[derive(Default)]
 pub struct OldInterface<T>
@@ -213,15 +215,15 @@ pub struct Hub
  receivers: BTreeMap<u64, Receiver>,
 }
 
-impl <T> Hub
+impl Hub
 {
- pub fn send(&mut self, receiver: Id<T>, message: Universe)
+ pub fn send<T>(&mut self, receiver: Id<T>, message: Universe)
    { todo!() }
- pub fn recv(&mut self, receiver: Id<T>) -> &Mailbox
+ pub fn mailbox<T>(&mut self, receiver: Id<T>) -> &Mailbox
    { todo!() }
- pub fn register(&mut self, receiver: Id<T>)
+ pub fn register<T>(&mut self, receiver: Id<T>)
    { todo!() }
- pub fn remove(&mut self, receiver: Id<T>)
+ pub fn remove<T>(&mut self, receiver: Id<T>)
    { todo!() }
 }
 
@@ -272,10 +274,10 @@ pub enum Actor
 {
  #[default]
  Empty,
- Drop { id: ActorId },
- Make { parent: ActorId, home: u64, seed: Seed  },
- Feed { id: ActorId, amount: u32 },
- Bill { id: ActorId, amount: u32 }
+ Drop { id: Id<actors::Actor> },
+ Make { parent: Id<actors::Actor>, home: u64, seed: Seed  },
+ Feed { id: Id<actors::Actor>, amount: u32 },
+ Bill { id: Id<actors::Actor>, amount: u32 }
 }
 
 impl Actor

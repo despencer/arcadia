@@ -3,8 +3,9 @@ use crate::arcadia::common::Id;
 use crate::arcadia::storage::{Reader,Writer};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
-use crate::arcadia::interface::{Hub, OldInterface};
+use crate::arcadia::interface::Hub;
 use crate::arcadia::interface;
+use crate::arcadia::values::Seed;
 
 #[derive(Default)]
 pub struct Commune
@@ -47,7 +48,7 @@ impl Commune
 
  pub fn drop_actor(&mut self, hub: &mut Hub, id: Id<Actor>)
  {
-   self.actors.remove( self.actors.iter().position(|x| x.id == actor).unwrap() );
+   self.actors.remove( self.actors.iter().position(|x| x.id == id).unwrap() );
    hub.remove(id);
  }
 }

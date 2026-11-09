@@ -3,6 +3,7 @@ use std::fs::{File, OpenOptions};
 use crate::arcadia::common::Id;
 use crate::arcadia::storage::Stored;
 use crate::arcadia::storage;
+use crate::arcadia::actors::Actor;
 
 pub enum Message
 {
