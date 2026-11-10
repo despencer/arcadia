@@ -2,12 +2,31 @@ use std::marker::PhantomData;
 use std::io::{Result};
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Debug, Eq)]
 pub struct Id<T>
 {
  value: u64,
  value_type: PhantomData<T>,
 }
+
+impl<T> std::hash::Hash for Id<T>
+{
+ fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+   { self.value.hash(state); }
+}
+
+impl<T> PartialEq for Id<T>
+{
+ fn eq(&self, other: &Self) -> bool
+    {  self.value == other.value }
+}
+
+impl<T> Clone for Id<T>
+{
+ fn clone(&self) -> Self { Id::<T> { value: self.value, value_type: PhantomData } }
+}
+
+impl<T> Copy for Id<T> { }
 
 impl<T> Id<T>
 {

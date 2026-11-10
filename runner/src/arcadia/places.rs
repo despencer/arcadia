@@ -3,7 +3,7 @@ use crate::arcadia::common::Id;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
-use crate::arcadia::interface::{OldInterface, Hub};
+use crate::arcadia::interface::Hub;
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
@@ -62,8 +62,8 @@ impl World
     for a in &self.oldactors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }*/
-  for a in &self.actors
-    { hub.send(a, interface::Universe::Actor { actor: interface::Actor::Feed { id: a.target, amount:self.feeder.sample() } } ); }
+  for a in self.actors
+    { hub.send(a, interface::Universe::Actor { actor: interface::Actor::Feed { id: a, amount:self.feeder.sample() } } ); }
  }
 
  pub fn drop_actor(&mut self, actor: Id<Actor>)
@@ -72,7 +72,7 @@ impl World
   if let Some(index) = self.actors.iter().position(|x| *x == actor)
     { self.actors.remove(index); }
   self.adjust_feeder();
-  log::info!("World {} drop actor, {} actors left", self.id, self.oldactors.len());
+  log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
  }
 
  pub fn add_actor(&mut self, actor: Id<Actor>)
@@ -106,12 +106,12 @@ impl World
    Ok(world)
  }
 
- pub fn save(&self, target: &mut Writer, actors: &Depot<Actor>) -> Result<()>
+ pub fn save(&self, target: &mut Writer) -> Result<()>
  {
    target.u64(self.id)?;
    target.u32(self.production)?;
-   log::debug!("World {} saving, {} actors", self.id, self.oldactors.len());
-   target.save(&self.actors)?;
+   log::debug!("World {} saving, {} actors", self.id, self.actors.len());
+   target.vec(&self.actors)?;
    Ok(())
  }
 }

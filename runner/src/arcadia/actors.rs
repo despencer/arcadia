@@ -1,7 +1,7 @@
 use std::io::{Result, Error, ErrorKind};
 use crate::arcadia::common::Id;
 use crate::arcadia::commune::Commune;
-use crate::arcadia::interface::{OldInterface, Hub};
+use crate::arcadia::interface::{OldInterface, Hub, Mailbox};
 use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
@@ -28,7 +28,7 @@ impl Stored for ActorId
   { writer.u64(self.0) }
 }*/
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub enum ActorInside
 {
  #[default]
@@ -36,7 +36,7 @@ pub enum ActorInside
  Make { seed: Seed }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Body
 {
  pub id: Id<Actor>,
@@ -84,14 +84,13 @@ impl Body
      }*/
   while let Some(event) = self.inside.get()
     {
-     match self.inside.get()
+     match event
        {
          ActorInside::Make {seed} => hub.send(self.commune, interface::Universe::Actor { actor: interface::Actor::Make { parent: self.id, home: self.home, seed:seed } } ),
          _ => {}
        }
     }
-  let mailbox = hub.mailbox(&self.id);
-  while let Some(event) = mailbox.recv()
+  for event in self.communications.mail(self.id)
     {
     match event
       {
@@ -101,7 +100,7 @@ impl Body
  }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Actor
 {
  body: Body,
@@ -115,9 +114,9 @@ impl Actor
  pub fn get_id(&self) -> Id<Actor>
  { self.body.id }
 
- pub fn tick(&mut self, requests: &mut OldInterface<interface::Actor>, hub: &mut Hub)
+ pub fn tick(&mut self, hub: &mut Hub)
  {
-  self.body.tick(requests, hub);
+  self.body.tick(hub);
   self.control.tick(&mut self.body);
  }
 
@@ -134,10 +133,10 @@ impl Actor
   self.body.credits = self.body.credits.saturating_add(amount);
  }
 
- pub fn new(id: u64, home: u64,  seed: &mut Seed) -> Actor
+ pub fn new(id: Id<Actor>, home: u64,  seed: &mut Seed) -> Actor
  {
   let mut actor = Actor::default();
-  actor.body.id = ActorId::new(id);
+  actor.body.id = id;
   actor.body.home = home;
   actor.body.credits = seed.credits;
   std::mem::swap(&mut actor.control, &mut seed.seed);
@@ -152,13 +151,13 @@ impl Factory for Actor
    let mut actor = Actor::default();
    if reader.u8()? > actor.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown actor version")); }
-   actor.body.id = ActorId(reader.u64()?);
+   actor.body.id = Id::load(reader)?;
    actor.body.home = reader.u64()?;
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
    let factory = UnitFactory::default();
    actor.control = Compartment::load(reader, &factory)?;
-   log::debug!("Actor {} loaded, {} credits", actor.body.id.0, actor.body.credits);
+   log::debug!("Actor {:?} loaded, {} credits", actor.body.id, actor.body.credits);
    Ok(actor)
  }
 }
@@ -167,9 +166,9 @@ impl Stored for Actor
 {
  fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   log::debug!("Saving actor {}", self.body.id.0);
+   log::debug!("Saving actor {:?}", self.body.id);
    writer.u8(self.version())?;
-   writer.u64(self.body.id.0)?;
+   self.body.id.save(writer)?;
    writer.u64(self.body.home)?;
    writer.u32(self.body.credits)?;
    writer.u32(self.body.reserve)?;

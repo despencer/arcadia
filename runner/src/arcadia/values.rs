@@ -3,6 +3,7 @@ use std::collections::{VecDeque};
 use crate::arcadia::storage::{Reader,Writer,Stored,Factory};
 use crate::arcadia::control::{Compartment,UnitFactory};
 
+#[derive(Debug)]
 pub struct Seed
 {
  pub credits: u32,
@@ -69,6 +70,11 @@ pub struct Value
  value: ValueData
 }
 
+impl std::fmt::Debug for Value
+{
+ fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "{}", &self.name)  }
+}
+
 impl Value
 {
  const FLOAT: u8 = 1;
@@ -106,7 +112,7 @@ impl Factory for Value
  }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Values
 {
  pub values: Vec<Value>,

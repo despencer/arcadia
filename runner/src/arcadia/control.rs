@@ -264,6 +264,7 @@ impl Unit for ChildMaker
   self.seeds = reader.port()?;
   Ok(()) 
  }
+
  fn save(&self, target: &mut Writer) -> Result<()>
  {
   target.u32(self.variator.precision)?;
@@ -272,6 +273,7 @@ impl Unit for ChildMaker
   target.port(self.seeds)?;
   Ok(())
  }
+
  fn tick(&mut self, values: &mut Values, _body: &mut Body)
  {
   let &mut ValueData::Seeds { value: ref mut birthcredits} = values.get_mut(self.birthcredits) else { panic!("Wrong data type for birthcredits") };
@@ -382,6 +384,11 @@ pub struct Compartment
  components: Vec<Box<Compartment>>,
  units: Vec<Box<dyn Unit>>,
  values: Values,
+}
+
+impl std::fmt::Debug for Compartment
+{
+ fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "Compartment")  }
 }
 
 impl Compartment

@@ -1,12 +1,11 @@
 use std::io::{Result, Error, ErrorKind};
 use std::collections::{VecDeque, BTreeMap};
 use crate::arcadia::common::Id;
-use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
 use crate::arcadia::actors;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct OldInterface<T>
 {
  messages: VecDeque<T>
@@ -24,9 +23,9 @@ impl<T> OldInterface<T>
   self.messages.len()
  }
 
- pub fn get(&mut self) -> T
+ pub fn get(&mut self) -> Option<T>
  {
-  self.messages.pop_front().unwrap()
+  self.messages.pop_front()
  }
 }
 
@@ -187,8 +186,11 @@ impl Input
  }
 }*/
 
+#[derive(Default)]
 pub enum PartyType
 {
+ #[default]
+ Unknown = 0,
  Universe = 1,
  Commune = 2,
  World = 3,
@@ -209,6 +211,30 @@ pub struct Mailbox
  messages: VecDeque<Universe>,
 }
 
+impl Mailbox
+{
+ pub fn recv(&mut self) -> Option<Universe>
+ {
+  self.messages.pop_front()
+ }
+}
+
+impl Factory for Mailbox
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+ {
+   todo!()
+ }
+}
+
+impl Stored for Mailbox
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+   todo!()
+ }
+}
+
 #[derive(Default)]
 pub struct Hub
 {
@@ -219,12 +245,20 @@ impl Hub
 {
  pub fn send<T>(&mut self, receiver: Id<T>, message: Universe)
    { todo!() }
- pub fn mailbox<T>(&mut self, receiver: Id<T>) -> &Mailbox
+ pub fn mail<T>(&mut self, receiver: Id<T>) -> Vec<Universe>
    { todo!() }
  pub fn register<T>(&mut self, receiver: Id<T>)
    { todo!() }
  pub fn remove<T>(&mut self, receiver: Id<T>)
    { todo!() }
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
+  {
+   todo!()
+  }
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+   todo!()
+ }
 }
 
 pub enum Universe
@@ -302,10 +336,10 @@ impl Factory for Actor
   let act = match utype
         {
         Self::EMPTY => Self::Empty { },
-        Self::DROP => Self::Drop { id: ActorId::load(reader)? },
-        Self::MAKE => Self::Make { parent: ActorId::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
-        Self::FEED => Self::Feed { id: ActorId::load(reader)?, amount: reader.u32()? },
-        Self::BILL => Self::Bill { id: ActorId::load(reader)?, amount: reader.u32()? },
+        Self::DROP => Self::Drop { id: Id::<actors::Actor>::load(reader)? },
+        Self::MAKE => Self::Make { parent: Id::<actors::Actor>::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
+        Self::FEED => Self::Feed { id: Id::<actors::Actor>::load(reader)?, amount: reader.u32()? },
+        Self::BILL => Self::Bill { id: Id::<actors::Actor>::load(reader)?, amount: reader.u32()? },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actor interface"))
         };
   Ok(act)

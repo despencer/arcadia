@@ -16,7 +16,13 @@ impl Stored for DepotIndex
   { writer.count(self.0) }
 }
 
+impl DepotIndex
+{
+ pub fn new(index: usize) -> Self { DepotIndex(index) }
+}
+
 //#[derive(Default)]
+#[derive(Debug)]
 pub struct Depot<T: Sized>
 {
     data: Vec<Option<T>>,
