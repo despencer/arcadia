@@ -221,7 +221,7 @@ impl Mailbox
 
 impl Factory for Mailbox
 {
- fn load(reader: &mut Reader) -> Result<Self>
+ fn load(_reader: &mut Reader) -> Result<Self>
  {
    todo!()
  }
@@ -229,7 +229,7 @@ impl Factory for Mailbox
 
 impl Stored for Mailbox
 {
- fn save(&self, writer: &mut Writer) -> Result<()>
+ fn save(&self, _writer: &mut Writer) -> Result<()>
  {
    todo!()
  }
@@ -238,24 +238,31 @@ impl Stored for Mailbox
 #[derive(Default)]
 pub struct Hub
 {
+ universe: Id<Universe>,
+ lastseqid: u64,
  receivers: BTreeMap<u64, Receiver>,
 }
 
 impl Hub
 {
- pub fn send<T>(&mut self, receiver: Id<T>, message: Universe)
+ pub fn send<T>(&mut self, _receiver: Id<T>, _message: Universe)
    { todo!() }
- pub fn mail<T>(&mut self, receiver: Id<T>) -> Vec<Universe>
+ pub fn mail<T>(&mut self, _receiver: Id<T>) -> Vec<Universe>
    { todo!() }
- pub fn register<T>(&mut self, receiver: Id<T>)
+ pub fn register<T>(&mut self, _receiver: Id<T>)
    { todo!() }
- pub fn remove<T>(&mut self, receiver: Id<T>)
+ pub fn remove<T>(&mut self, _receiver: Id<T>)
    { todo!() }
- pub fn load(&mut self, reader: &mut Reader) -> Result<()>
+ pub fn gen_id(&mut self) -> u64
+ {
+  self.lastseqid += 1;
+  self.lastseqid
+ }
+ pub fn load(&mut self, _reader: &mut Reader) -> Result<()>
   {
    todo!()
   }
- pub fn save(&self, writer: &mut Writer) -> Result<()>
+ pub fn save(&self, _writer: &mut Writer) -> Result<()>
  {
    todo!()
  }

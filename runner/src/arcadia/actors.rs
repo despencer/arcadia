@@ -1,7 +1,7 @@
 use std::io::{Result, Error, ErrorKind};
 use crate::arcadia::common::Id;
 use crate::arcadia::commune::Commune;
-use crate::arcadia::interface::{OldInterface, Hub, Mailbox};
+use crate::arcadia::interface::{OldInterface, Hub};
 use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
@@ -72,16 +72,24 @@ impl Body
    }
  }
 
+ pub fn billing(&mut self, amount: u32, hub: &mut Hub)
+ {
+  if self.credits >= amount
+    {  self.credits -= amount; }
+  else
+    {
+    self.credits = 0;
+    hub.send(self.commune, interface::Universe::Actor { actor: interface::Actor::Drop { id: self.id } } );
+    }
+ }
+
+ pub fn feed(&mut self, amount: u32)
+ {
+  self.credits = self.credits.saturating_add(amount);
+ }
+
  pub fn tick(&mut self, hub: &mut Hub)
  {
-/*  while self.inside.len() > 0
-     {
-     match self.inside.get()
-       {
-         ActorInside::Make {seed} => outside.put( interface::Actor::Make { parent: self.id, home: self.home, seed:seed } ),
-         _ => {}
-       }
-     }*/
   while let Some(event) = self.inside.get()
     {
      match event
@@ -90,11 +98,17 @@ impl Body
          _ => {}
        }
     }
-  for event in self.communications.mail(self.id)
+  for event in hub.mail(self.id)
     {
     match event
       {
-      _ => {}
+      interface::Universe::Actor {actor} =>
+              match actor
+                  {
+                  interface::Actor::Feed {id, amount} => self.feed(amount),
+                  interface::Actor::Bill {id, amount} => self.billing(amount, hub),
+                  _ => {}
+                  }
       }
     }
  }
@@ -118,19 +132,6 @@ impl Actor
  {
   self.body.tick(hub);
   self.control.tick(&mut self.body);
- }
-
- pub fn billing(&mut self, amount: u32, requests: &mut OldInterface<interface::Actor>)
- {
-  if self.body.credits >= amount
-    {  self.body.credits -= amount; }
-  else
-    { self.body.credits = 0; requests.put( interface::Actor::Drop {id : self.body.id} ); }
- }
-
- pub fn feed(&mut self, amount: u32)
- {
-  self.body.credits = self.body.credits.saturating_add(amount);
  }
 
  pub fn new(id: Id<Actor>, home: u64,  seed: &mut Seed) -> Actor

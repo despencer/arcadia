@@ -19,6 +19,32 @@ impl Commune
 {
  pub fn tick(&mut self, hub: &mut Hub)
  {
+  for event in hub.mail(self.id)
+    {
+    match event
+      {
+      interface::Universe::Actor {actor} =>
+              match actor
+                  {
+                  interface::Actor::Make {parent, home, mut seed} =>
+                      {
+                      let id = self.gen_id();
+                      let actor = Actor::new(id, home, seed);
+                      self.actors.insert(actor);
+                      self.register(id);
+                      hub.send(home, interface::Universe::Actor { actor: interface::Actor::Register { id: id } } );
+                      },
+                  interface::Actor::Drop {id} =>
+                      {
+                      let index = DepotIndex::new( self.actors.iterdata().position(|x| x.get_id() == id).unwrap() );
+                      self.actors.remove(index);
+                      hub.remove(id);
+                      hub.send(hub.universe, interface::Universe::Actor { actor: interface::Actor::Drop { id: id } } );
+                      },
+                  _ => {}
+                  }
+      }
+    }
   for a in self.actors.iterdata()
    { hub.send(a.get_id(), interface::Universe::Actor { actor: interface::Actor::Bill { id: a.get_id(), amount:self.billing } } ); }
   for a in self.actors.iterdata_mut()
@@ -41,17 +67,4 @@ impl Commune
   Ok( () )
  }
 
- pub fn make_actor(&mut self, hub: &mut Hub, id: Id<Actor>, home: u64, seed: &mut Seed)
- {
-  let mut actor = Actor::new(id, home, seed);
-  hub.register(id);
-  self.actors.insert(actor);
- }
-
- pub fn drop_actor(&mut self, hub: &mut Hub, id: Id<Actor>)
- {
-   let index = DepotIndex::new( self.actors.iterdata().position(|x| x.get_id() == id).unwrap() );
-   self.actors.remove(index);
-   hub.remove(id);
- }
 }

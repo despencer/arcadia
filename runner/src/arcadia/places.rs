@@ -1,6 +1,6 @@
 use std::io::{Result};
 use crate::arcadia::common::Id;
-use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
+use crate::arcadia::storage::{Reader, Writer};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
 use crate::arcadia::interface::Hub;
@@ -62,8 +62,8 @@ impl World
     for a in &self.oldactors
        { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
     }*/
-  for a in self.actors
-    { hub.send(a, interface::Universe::Actor { actor: interface::Actor::Feed { id: a, amount:self.feeder.sample() } } ); }
+  for a in &self.actors
+    { hub.send(*a, interface::Universe::Actor { actor: interface::Actor::Feed { id: *a, amount:self.feeder.sample() } } ); }
  }
 
  pub fn drop_actor(&mut self, actor: Id<Actor>)

@@ -5,14 +5,14 @@ use std::io::{Result, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
+use crate::arcadia::storage::{Reader, Writer};
 use crate::arcadia::common::Id;
 use crate::arcadia::actors::Actor;
 use crate::arcadia::commune::Commune;
 use crate::arcadia::places::{World, Realm};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::interface;
-use crate::arcadia::interface::{Hub, Mailbox};
+use crate::arcadia::interface::Hub;
 use crate::arcadia::values::Seed;
 use crate::arcadia::telemetry;
 
@@ -27,7 +27,6 @@ pub struct Universe
 {
  id: Id<Universe>,
  timetick: u64,
- lastseqid: u64,
  storage: Storage,
  commune: Commune,
  realm: Realm,
@@ -43,7 +42,6 @@ impl Universe
  {
   log::info!("Universe loading started");
   self.timetick = reader.u64()?;
-  self.lastseqid = reader.u64()?;
   log::info!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
   self.commune.load(reader)?;
 /*  let counta = reader.count()?;
@@ -71,7 +69,6 @@ impl Universe
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
   writer.u64(self.timetick)?;
-  writer.u64(self.lastseqid)?;
   self.commune.save( writer)?;
 /*  log::info!("Universe saving {} actors", self.storage.actors.len());
   writer.count(self.storage.actors.len())?;
@@ -121,13 +118,7 @@ impl Universe
     {
     match event
       {
-      interface::Universe::Actor {actor} =>
-              match actor
-                  {
-                  interface::Actor::Drop {id} => self.drop_actor(id),
-                  interface::Actor::Make {parent, home, mut seed} => self.make_actor(parent, home, &mut seed),
-                  _ => {}
-                  }
+        _ => {}
       }
     }
  }
@@ -142,13 +133,7 @@ impl Universe
   *self.storage.wlookup.get(&id).unwrap()
  }
 
- pub fn gen_id(&mut self) -> u64
- {
-  self.lastseqid += 1;
-  self.lastseqid
- }
-
- pub fn make_actor(&mut self, parent: Id<Actor>, home: u64, seed: &mut Seed)
+/* pub fn make_actor(&mut self, parent: Id<Actor>, home: u64, seed: &mut Seed)
  {
   log::info!("New actor request from {:?} with {} credits", parent, seed.credits);
   let iactor : Id<Actor> = Id::new(self.gen_id());
@@ -163,7 +148,7 @@ impl Universe
   self.commune.drop_actor(&mut self.communications, id);
   self.realm.drop_actor(&mut self.storage.worlds, id);
   self.telemetry.write(self.timetick, telemetry::Message::Death { id } ).unwrap();
- }
+ }*/
 
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
