@@ -1,6 +1,6 @@
 use std::io::{Result};
 use crate::arcadia::common::Id;
-use crate::arcadia::storage::{Reader, Writer};
+use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
 use crate::arcadia::interface::Hub;
@@ -44,7 +44,7 @@ impl Container
 #[derive(Default)]
 pub struct World
 {
- id: u64,
+ id: Id<World>,
  production: u32,
  feeder: Sampler,
  actors: Vec<Id<Actor>>,
@@ -52,7 +52,7 @@ pub struct World
 
 impl World
 {
- pub fn get_id(&self) -> u64
+ pub fn get_id(&self) -> Id<World>
  { self.id }
 
  pub fn tick(&mut self, hub: &mut Hub)
@@ -68,16 +68,16 @@ impl World
 
  pub fn drop_actor(&mut self, actor: Id<Actor>)
  {
-  log::info!("World {} drop actor {:?}", self.id, actor);
+  log::info!("World {:?} drop actor {:?}", self.id, actor);
   if let Some(index) = self.actors.iter().position(|x| *x == actor)
     { self.actors.remove(index); }
   self.adjust_feeder();
-  log::info!("World {} drop actor, {} actors left", self.id, self.actors.len());
+  log::info!("World {:?} drop actor, {} actors left", self.id, self.actors.len());
  }
 
  pub fn add_actor(&mut self, actor: Id<Actor>)
  {
-  log::info!("World {} add actor {:?}", self.id, actor);
+  log::info!("World {:?} add actor {:?}", self.id, actor);
   self.actors.push(actor);
   self.adjust_feeder();
  }
@@ -98,19 +98,19 @@ impl World
  {
    log::debug!("World loading");
    let mut world = World::default();
-   world.id = source.u64()?;
+   world.id = Id::<World>::load(source)?;
    world.production = source.u32()?;
    source.vec(&mut world.actors);
    world.adjust_feeder();
-   log::debug!("World {} loaded", world.id);
+   log::debug!("World {:?} loaded", world.id);
    Ok(world)
  }
 
  pub fn save(&self, target: &mut Writer) -> Result<()>
  {
-   target.u64(self.id)?;
+   self.id.save(target)?;
    target.u32(self.production)?;
-   log::debug!("World {} saving, {} actors", self.id, self.actors.len());
+   log::debug!("World {:?} saving, {} actors", self.id, self.actors.len());
    target.vec(&self.actors)?;
    Ok(())
  }

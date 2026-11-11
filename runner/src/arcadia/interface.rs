@@ -4,6 +4,7 @@ use crate::arcadia::common::Id;
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
 use crate::arcadia::actors;
+use crate::arcadia::places::World;
 
 #[derive(Default, Debug)]
 pub struct OldInterface<T>
@@ -238,7 +239,7 @@ impl Stored for Mailbox
 #[derive(Default)]
 pub struct Hub
 {
- universe: Id<Universe>,
+ pub universe: Id<Universe>,
  lastseqid: u64,
  receivers: BTreeMap<u64, Receiver>,
 }
@@ -316,9 +317,10 @@ pub enum Actor
  #[default]
  Empty,
  Drop { id: Id<actors::Actor> },
- Make { parent: Id<actors::Actor>, home: u64, seed: Seed  },
+ Make { parent: Id<actors::Actor>, home: Id<World>, seed: Seed  },
  Feed { id: Id<actors::Actor>, amount: u32 },
- Bill { id: Id<actors::Actor>, amount: u32 }
+ Bill { id: Id<actors::Actor>, amount: u32 },
+ Register { id: Id<actors::Actor> },
 }
 
 impl Actor
@@ -328,6 +330,7 @@ impl Actor
  const MAKE: u8 = 3;
  const FEED: u8 = 4;
  const BILL: u8 = 5;
+ const REGISTER: u8 = 6;
 
  fn version() -> u8 { 1 }
 }
@@ -344,9 +347,10 @@ impl Factory for Actor
         {
         Self::EMPTY => Self::Empty { },
         Self::DROP => Self::Drop { id: Id::<actors::Actor>::load(reader)? },
-        Self::MAKE => Self::Make { parent: Id::<actors::Actor>::load(reader)?, home : reader.u64()?, seed: Seed::load(reader)? },
+        Self::MAKE => Self::Make { parent: Id::<actors::Actor>::load(reader)?, home : Id::<World>::load(reader)?, seed: Seed::load(reader)? },
         Self::FEED => Self::Feed { id: Id::<actors::Actor>::load(reader)?, amount: reader.u32()? },
         Self::BILL => Self::Bill { id: Id::<actors::Actor>::load(reader)?, amount: reader.u32()? },
+        Self::REGISTER => Self::Register { id: Id::<actors::Actor>::load(reader)? },
         _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actor interface"))
         };
   Ok(act)
@@ -364,9 +368,10 @@ impl Stored for Actor
     Self::Drop {id} => { writer.u8(Self::DROP)?; id.save(writer)? },
     Self::Make {parent, home, seed} =>
            { writer.u8(Self::MAKE)?; parent.save(writer)?;
-             writer.u64(*home)?; seed.save(writer)? },
+             home.save(writer)?; seed.save(writer)? },
     Self::Feed {id, amount} => { writer.u8(Self::FEED)?; id.save(writer)?; writer.u32(*amount)? },
     Self::Bill {id, amount} => { writer.u8(Self::BILL)?; id.save(writer)?; writer.u32(*amount)? },
+    Self::Register {id} => { writer.u8(Self::REGISTER)?; id.save(writer)? },
     }
   Ok( () )
  }

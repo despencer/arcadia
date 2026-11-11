@@ -6,6 +6,7 @@ use crate::arcadia::interface;
 use crate::arcadia::control::{Compartment, UnitFactory};
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
+use crate::arcadia::places::World;
 
 /*#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ActorId(u64);
@@ -40,7 +41,7 @@ pub enum ActorInside
 pub struct Body
 {
  pub id: Id<Actor>,
- home: u64,
+ home: Id<World>,
  credits: u32,
  reserve: u32,
  inside: OldInterface<ActorInside>,
@@ -105,8 +106,8 @@ impl Body
       interface::Universe::Actor {actor} =>
               match actor
                   {
-                  interface::Actor::Feed {id, amount} => self.feed(amount),
-                  interface::Actor::Bill {id, amount} => self.billing(amount, hub),
+                  interface::Actor::Feed {amount, ..} => self.feed(amount),
+                  interface::Actor::Bill {amount, ..} => self.billing(amount, hub),
                   _ => {}
                   }
       }
@@ -134,7 +135,7 @@ impl Actor
   self.control.tick(&mut self.body);
  }
 
- pub fn new(id: Id<Actor>, home: u64,  seed: &mut Seed) -> Actor
+ pub fn new(id: Id<Actor>, home: Id<World>,  seed: &mut Seed) -> Actor
  {
   let mut actor = Actor::default();
   actor.body.id = id;
@@ -153,7 +154,7 @@ impl Factory for Actor
    if reader.u8()? > actor.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown actor version")); }
    actor.body.id = Id::load(reader)?;
-   actor.body.home = reader.u64()?;
+   actor.body.home = Id::load(reader)?;
    actor.body.credits = reader.u32()?;
    actor.body.reserve = reader.u32()?;
    let factory = UnitFactory::default();
@@ -170,7 +171,7 @@ impl Stored for Actor
    log::debug!("Saving actor {:?}", self.body.id);
    writer.u8(self.version())?;
    self.body.id.save(writer)?;
-   writer.u64(self.body.home)?;
+   self.body.home.save(writer)?;
    writer.u32(self.body.credits)?;
    writer.u32(self.body.reserve)?;
    self.control.save(writer)?;

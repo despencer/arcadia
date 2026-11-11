@@ -7,20 +7,18 @@ use std::collections::HashMap;
 use std::path::Path;
 use crate::arcadia::storage::{Reader, Writer};
 use crate::arcadia::common::Id;
-use crate::arcadia::actors::Actor;
 use crate::arcadia::commune::Commune;
 use crate::arcadia::places::{World, Realm};
 use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::interface;
 use crate::arcadia::interface::Hub;
-use crate::arcadia::values::Seed;
 use crate::arcadia::telemetry;
 
 #[derive(Default)]
 pub struct Storage
 {
  pub worlds: Depot<World>,
- pub wlookup: HashMap<u64, DepotIndex>
+ pub wlookup: HashMap<Id<World>, DepotIndex>
 }
 
 pub struct Universe
@@ -42,7 +40,7 @@ impl Universe
  {
   log::info!("Universe loading started");
   self.timetick = reader.u64()?;
-  log::info!("Universe loading finished, timetick={}, seqid={}", self.timetick, self.lastseqid);
+  log::info!("Universe loading finished, timetick={}", self.timetick);
   self.commune.load(reader)?;
 /*  let counta = reader.count()?;
   log::info!("Universe reading {} actors", counta);
@@ -128,7 +126,7 @@ impl Universe
   *self.storage.alookup.get(&id).unwrap()
  }*/
 
- pub fn lookup_world(&self, id: u64) -> DepotIndex
+ pub fn lookup_world(&self, id: Id<World>) -> DepotIndex
  {
   *self.storage.wlookup.get(&id).unwrap()
  }
@@ -153,7 +151,7 @@ impl Universe
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { id: Id::<Universe>::new(0),
-                            timetick: 0, lastseqid: 0, storage: Storage::default(), commune: Commune::default(),
+                            timetick: 0, storage: Storage::default(), commune: Commune::default(),
                             communications: Hub::default(),
                             realm: Realm::default(),
                             telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };

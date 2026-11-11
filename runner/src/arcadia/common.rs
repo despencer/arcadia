@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::io::{Result};
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 
-#[derive(Default, Debug, Eq)]
 pub struct Id<T>
 {
  value: u64,
@@ -27,6 +26,17 @@ impl<T> Clone for Id<T>
 }
 
 impl<T> Copy for Id<T> { }
+impl<T> Eq for Id<T> { }
+
+impl<T> Default for Id<T>
+{
+ fn default() -> Self { Id::<T> { value: 0, value_type: PhantomData } }
+}
+
+impl<T> std::fmt::Debug for Id<T>
+{
+ fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "{}", &self.value)  }
+}
 
 impl<T> Id<T>
 {
