@@ -7,40 +7,6 @@ use crate::arcadia::interface::Hub;
 use crate::arcadia::interface;
 use crate::arcadia::control::Sampler;
 
-/*#[derive(Default)]
-pub struct Container
-{
- billing: u32,
- oldactors: Vec<DepotIndex>,
-}
-
-impl Container
-{
- pub fn insert(&mut self, actor: DepotIndex)
- {
-  self.oldactors.push(actor);
- }
-
- pub fn drop_actor(&mut self, actor: DepotIndex)
- {
-  if let Some(index) = self.oldactors.iter().position(|x| *x == actor)
-    { self.oldactors.remove(index); }
- }
-
- pub fn load(&mut self, reader: &mut Reader) -> Result<()>
- {
-  self.billing = reader.u32()?;
-  Ok(())
- }
-
- pub fn save(&self, writer: &mut Writer) -> Result<()>
- {
-  writer.u32(self.billing)?;
-  Ok(())
- }
-
-}*/
-
 #[derive(Default)]
 pub struct World
 {
@@ -57,11 +23,6 @@ impl World
 
  pub fn tick(&mut self, hub: &mut Hub)
  {
-/*  if self.oldactors.len() > 0
-    {
-    for a in &self.oldactors
-       { actors.get_mut(*a).unwrap().feed(self.feeder.sample()); }
-    }*/
   for a in &self.actors
     { hub.send(*a, interface::Universe::Actor { actor: interface::Actor::Feed { id: *a, amount:self.feeder.sample() } } ); }
  }
