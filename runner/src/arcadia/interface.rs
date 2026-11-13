@@ -6,6 +6,8 @@ use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
 use crate::arcadia::actors;
 use crate::arcadia::places::World;
 use crate::arcadia::commune::Commune;
+use crate::arcadia::telemetry;
+use crate::arcadia::universe;
 
 #[derive(Default, Debug)]
 pub struct OldInterface<T>
@@ -206,7 +208,7 @@ pub struct Receiver
  id: u64,
 }
 
-impl From<Id<Universe>> for Receiver { fn from(id: Id<Universe>) -> Self { Receiver { party_type: PartyType::Universe, id: id.get_value() } } }
+impl From<Id<universe::Universe>> for Receiver { fn from(id: Id<universe::Universe>) -> Self { Receiver { party_type: PartyType::Universe, id: id.get_value() } } }
 impl From<Id<Commune>> for Receiver { fn from(id: Id<Commune>) -> Self { Receiver { party_type: PartyType::Commune, id: id.get_value() } } }
 impl From<Id<World>> for Receiver { fn from(id: Id<World>) -> Self { Receiver { party_type: PartyType::World, id: id.get_value() } } }
 impl From<Id<Actor>> for Receiver { fn from(id: Id<Actor>) -> Self { Receiver { party_type: PartyType::Actor, id: id.get_value() } } }
@@ -272,18 +274,32 @@ impl Stored for Mailbox
  }
 }
 
-#[derive(Default)]
 pub struct Hub
 {
- pub universe: Id<Universe>,
+ pub universe: Id<universe::Universe>,
+ pub timetick: u64,
  lastseqid: u64,
  receivers: BTreeMap<u64, Mailbox>,
+ telemetry: telemetry::Writer
 }
 
 impl Hub
 {
+ pub fn new(telemetry :telemetry::Writer) -> Self
+ {
+   Hub
+    {
+    universe: Id::new(0),
+    lastseqid: 0,
+    timetick: 0,
+    receivers: BTreeMap::default(),
+    telemetry: telemetry,
+    }
+ }
+
  pub fn send<T>(&mut self, receiver: Id<T>, message: Universe)
  {
+  self.telemetry.write(self.timetick, &message).unwrap();
   if let Some(mailbox) = self.receivers.get_mut( &receiver.get_value() )
      {
      mailbox.messages.push_back(message);
@@ -319,14 +335,12 @@ impl Hub
 
  pub fn load(&mut self, reader: &mut Reader) -> Result<()>
   {
-   self.universe = Id::load(reader)?;
    self.lastseqid = reader.u64()?;
    reader.btreemap(&mut self.receivers)
   }
 
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   self.universe.save(writer)?;
    writer.u64(self.lastseqid)?;
    writer.btreemap(&self.receivers)
  }

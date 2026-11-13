@@ -1,15 +1,15 @@
 use std::io::{Result, BufWriter, Seek, SeekFrom};
 use std::fs::{File, OpenOptions};
-use crate::arcadia::common::Id;
 use crate::arcadia::storage::Stored;
 use crate::arcadia::storage;
-use crate::arcadia::actors::Actor;
+use crate::arcadia::interface::Universe;
+use crate::arcadia::interface;
 
-pub enum Message
+/*pub enum Message
 {
  Death { id: Id<Actor> },
  Birth { id: Id<Actor>, parent: Id<Actor>, home: u64  }
-}
+}*/
 
 pub struct Writer
 {
@@ -31,7 +31,37 @@ impl Writer
   Ok( Self { target: target } )
  }
 
- const DEATH :u16 = 1;
+ pub fn write(&mut self, tick :u64, message: &Universe) -> Result<()>
+ {
+  if self.filter(message)
+     {
+     let channel : u16 = 0;
+     let mut writer = storage::Writer::new(&mut self.target);
+     writer.u16(channel)?;
+     writer.u64(tick)?;
+     message.save(&mut writer)?;
+     }
+  Ok(())
+ }
+
+ fn filter(&self, message: &Universe) -> bool
+ {
+  match message
+     {
+     Universe::Actor {actor} =>
+          match actor
+            {
+            interface::Actor::Make {..} => return true,
+            interface::Actor::Drop {..} => return true,
+            _ => {}
+            },
+//     _ => {}
+     }
+  false
+ }
+}
+
+/* const DEATH :u16 = 1;
  const BIRTH :u16 = 2;
 
  pub fn write(&mut self, tick :u64, message: Message) -> Result<()>
@@ -61,4 +91,4 @@ impl Writer
      }
   Ok( () )
  }
-}
+}*/

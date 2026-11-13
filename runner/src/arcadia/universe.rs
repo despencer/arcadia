@@ -5,7 +5,7 @@ use std::io::{Result, Error, ErrorKind};
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::arcadia::storage::{Reader, Writer};
+use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::common::Id;
 use crate::arcadia::commune::Commune;
 use crate::arcadia::places::{World, Realm};
@@ -29,7 +29,6 @@ pub struct Universe
  commune: Commune,
  realm: Realm,
  communications: Hub,
- telemetry: telemetry::Writer
 }
 
 impl Universe
@@ -39,6 +38,7 @@ impl Universe
  pub fn load_1(&mut self, reader: &mut Reader) -> Result<()>
  {
   log::info!("Universe loading started");
+  self.id = Id::load(reader)?;
   self.timetick = reader.u64()?;
   log::info!("Universe loading finished, timetick={}", self.timetick);
   self.commune.load(reader)?;
@@ -60,12 +60,15 @@ impl Universe
      }
   log::info!("Universe reading comms");
   self.communications.load(reader)?;
+  self.communications.universe = self.id;
+  self.communications.timetick = self.timetick;
   log::info!("Universe loading finished");
   Ok(())
  }
 
  pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
+  self.id.save(writer)?;
   writer.u64(self.timetick)?;
   self.commune.save( writer)?;
 /*  log::info!("Universe saving {} actors", self.storage.actors.len());
@@ -109,6 +112,7 @@ impl Universe
  pub fn tick(&mut self)
  {
   self.timetick += 1;
+  self.communications.timetick = self.timetick;
   self.commune.tick(&mut self.communications);
   self.realm.tick(&mut self.storage.worlds, &mut self.communications);
 
@@ -152,9 +156,8 @@ impl Universe
  {
    let mut uni = Universe { id: Id::<Universe>::new(0),
                             timetick: 0, storage: Storage::default(), commune: Commune::default(),
-                            communications: Hub::default(),
-                            realm: Realm::default(),
-                            telemetry: telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()  };
+                            communications: Hub::new( telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()),
+                            realm: Realm::default(), };
    uni.load(&filename).expect("Could not load an Universe");
    let mut start = Instant::now();
 
