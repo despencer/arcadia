@@ -1,4 +1,4 @@
-use std::collections::{VecDeque};
+use std::collections::{VecDeque, BTreeMap};
 use std::io::{Result, Read, Write, Error, ErrorKind};
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use crate::arcadia::values::Port;
@@ -68,6 +68,13 @@ impl<'a> Reader<'a>
   value.clear();
   for _ in 0..self.count()?
     { value.push_back( T::load(self)? ); }
+  Ok(())
+ }
+ pub fn btreemap<K:Factory + std::cmp::Ord, V:Factory>(&mut self, value: &mut BTreeMap<K,V>) -> Result<()>
+ {
+  value.clear();
+  for _ in 0..self.count()?
+    { value.insert( K::load(self)?, V::load(self)? ); }
   Ok(())
  }
  pub fn vec<T:Factory>(&mut self, value: &mut Vec<T>) -> Result<()>
@@ -148,4 +155,23 @@ impl<'a> Writer<'a>
      { item.save(self)?; }
   Ok(())
  }
+ pub fn btreemap<K:Stored, V:Stored>(&mut self, map: &BTreeMap<K,V>) -> Result<()>
+ {
+  self.count(map.len())?;
+  for (key, value) in map.iter()
+     { key.save(self)?; value.save(self)?; }
+  Ok(())
+ }
+}
+
+impl Factory for u64
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+  { reader.u64() }
+}
+
+impl Stored for u64
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+  { writer.u64(*self) }
 }

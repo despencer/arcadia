@@ -42,6 +42,7 @@ impl<T> Id<T>
 {
  pub fn new(id: u64) -> Self
   { Id::<T>{value: id, value_type: PhantomData} }
+ pub fn get_value(&self) -> u64 { self.value }
 }
 
 impl<T> Factory for Id<T>

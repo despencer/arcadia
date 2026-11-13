@@ -5,6 +5,7 @@ use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
 use crate::arcadia::actors;
 use crate::arcadia::places::World;
+use crate::arcadia::commune::Commune;
 
 #[derive(Default, Debug)]
 pub struct OldInterface<T>
@@ -187,7 +188,7 @@ impl Input
  }
 }*/
 
-#[derive(Default)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum PartyType
 {
  #[default]
@@ -205,6 +206,37 @@ pub struct Receiver
  id: u64,
 }
 
+impl From<Id<Universe>> for Receiver { fn from(id: Id<Universe>) -> Self { Receiver { party_type: PartyType::Universe, id: id.get_value() } } }
+impl From<Id<Commune>> for Receiver { fn from(id: Id<Commune>) -> Self { Receiver { party_type: PartyType::Commune, id: id.get_value() } } }
+impl From<Id<World>> for Receiver { fn from(id: Id<World>) -> Self { Receiver { party_type: PartyType::World, id: id.get_value() } } }
+impl From<Id<Actor>> for Receiver { fn from(id: Id<Actor>) -> Self { Receiver { party_type: PartyType::Actor, id: id.get_value() } } }
+
+impl Receiver
+{
+ const UNIVERSE:u8 = PartyType::Universe as u8;
+ const COMMUNE:u8 = PartyType::Commune as u8;
+ const WORLD:u8 = PartyType::World as u8;
+ const ACTOR:u8 = PartyType::Actor as u8;
+
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
+ {
+  self.party_type = match reader.u8()?
+     {
+     Self::UNIVERSE => PartyType::Universe,
+     Self::COMMUNE => PartyType::Commune,
+     Self::WORLD => PartyType::World,
+     Self::ACTOR => PartyType::Actor,
+     _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown party type"))
+     };
+  Ok(())
+ }
+ fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  writer.u8(self.party_type as u8)?;
+  writer.u64(self.id)
+ }
+}
+
 #[derive(Default)]
 pub struct Mailbox
 {
@@ -214,25 +246,29 @@ pub struct Mailbox
 
 impl Mailbox
 {
- pub fn recv(&mut self) -> Option<Universe>
+ pub fn new<T>(receiver: Id<T>) -> Self where Receiver:From<Id<T>>
  {
-  self.messages.pop_front()
+  Mailbox { receiver: Receiver::from(receiver), messages: VecDeque::new() }
  }
 }
 
 impl Factory for Mailbox
 {
- fn load(_reader: &mut Reader) -> Result<Self>
+ fn load(reader: &mut Reader) -> Result<Self>
  {
-   todo!()
+   let mut abox = Self::default();
+   abox.receiver.load(reader)?;
+   reader.vecdeque(&mut abox.messages)?;
+   Ok(abox)
  }
 }
 
 impl Stored for Mailbox
 {
- fn save(&self, _writer: &mut Writer) -> Result<()>
+ fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   todo!()
+   self.receiver.save(writer)?;
+   writer.vecdeque(&self.messages)
  }
 }
 
@@ -241,31 +277,58 @@ pub struct Hub
 {
  pub universe: Id<Universe>,
  lastseqid: u64,
- receivers: BTreeMap<u64, Receiver>,
+ receivers: BTreeMap<u64, Mailbox>,
 }
 
 impl Hub
 {
- pub fn send<T>(&mut self, _receiver: Id<T>, _message: Universe)
-   { todo!() }
- pub fn mail<T>(&mut self, _receiver: Id<T>) -> Vec<Universe>
-   { todo!() }
- pub fn register<T>(&mut self, _receiver: Id<T>)
-   { todo!() }
- pub fn remove<T>(&mut self, _receiver: Id<T>)
-   { todo!() }
+ pub fn send<T>(&mut self, receiver: Id<T>, message: Universe)
+ {
+  if let Some(mailbox) = self.receivers.get_mut( &receiver.get_value() )
+     {
+     mailbox.messages.push_back(message);
+     }
+ }
+
+ pub fn mail<T>(&mut self, receiver: Id<T>) -> Vec<Universe>
+ {
+  let mut ret = vec![];
+  if let Some(mailbox) = self.receivers.get_mut( &receiver.get_value() )
+     {
+     while let Some(message) = mailbox.messages.pop_front()
+         { ret.push(message); }
+     }
+  ret
+ }
+
+ pub fn register<T>(&mut self, receiver: Id<T>) where Receiver:From<Id<T>>
+ {
+  self.receivers.entry(receiver.get_value()).or_insert_with(|| Mailbox::new(receiver));
+ }
+
+ pub fn remove<T>(&mut self, receiver: Id<T>)
+ {
+  self.receivers.remove(&receiver.get_value());
+ }
+
  pub fn gen_id(&mut self) -> u64
  {
   self.lastseqid += 1;
   self.lastseqid
  }
- pub fn load(&mut self, _reader: &mut Reader) -> Result<()>
+
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
   {
-   todo!()
+   self.universe = Id::load(reader)?;
+   self.lastseqid = reader.u64()?;
+   reader.btreemap(&mut self.receivers)
   }
- pub fn save(&self, _writer: &mut Writer) -> Result<()>
+
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
  {
-   todo!()
+   self.universe.save(writer)?;
+   writer.u64(self.lastseqid)?;
+   writer.btreemap(&self.receivers)
  }
 }
 
