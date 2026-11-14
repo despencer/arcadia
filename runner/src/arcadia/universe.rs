@@ -3,29 +3,19 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::io::{Result, Error, ErrorKind};
 use std::fs::File;
-use std::collections::HashMap;
 use std::path::Path;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::common::Id;
 use crate::arcadia::commune::Commune;
-use crate::arcadia::places::{World, Realm};
-use crate::arcadia::depot::{Depot, DepotIndex};
+use crate::arcadia::places::Realm;
 use crate::arcadia::interface;
 use crate::arcadia::interface::Hub;
 use crate::arcadia::telemetry;
-
-#[derive(Default)]
-pub struct Storage
-{
- pub worlds: Depot<World>,
- pub wlookup: HashMap<Id<World>, DepotIndex>
-}
 
 pub struct Universe
 {
  id: Id<Universe>,
  timetick: u64,
- storage: Storage,
  commune: Commune,
  realm: Realm,
  communications: Hub,
@@ -40,29 +30,12 @@ impl Universe
   log::info!("Universe loading started");
   self.id = Id::load(reader)?;
   self.timetick = reader.u64()?;
-  log::info!("Universe loading finished, timetick={}", self.timetick);
   self.commune.load(reader)?;
-/*  let counta = reader.count()?;
-  log::info!("Universe reading {} actors", counta);
-  for _i in 0..counta
-     {
-     let actor = Actor::load(reader)?; let aid = actor.get_id();
-     let iactor = self.storage.actors.insert(actor);
-     self.commune.insert(iactor); self.storage.alookup.insert(aid, iactor);
-     }*/
-  let countw = reader.count()?;
-  log::info!("Universe reading {} worlds", countw);
-  for _i in 0..countw
-     {
-     let world = World::load(reader)?; let wid = world.get_id();
-     let iworld = self.storage.worlds.insert(world);
-     self.realm.insert(iworld); self.storage.wlookup.insert(wid, iworld);
-     }
-  log::info!("Universe reading comms");
+  self.realm.load(reader)?;
   self.communications.load(reader)?;
   self.communications.universe = self.id;
   self.communications.timetick = self.timetick;
-  log::info!("Universe loading finished");
+  log::info!("Universe loading finished, timetick={}", self.timetick);
   Ok(())
  }
 
@@ -71,13 +44,7 @@ impl Universe
   self.id.save(writer)?;
   writer.u64(self.timetick)?;
   self.commune.save( writer)?;
-/*  log::info!("Universe saving {} actors", self.storage.actors.len());
-  writer.count(self.storage.actors.len())?;
-  for actor in self.storage.actors.iterdata()
-      { actor.save(writer)?; }*/
-  writer.count(self.storage.worlds.len())?;
-  for world in self.storage.worlds.iterdata()
-      { world.save(writer)?; }
+  self.realm.save( writer)?;
   self.communications.save(writer)?;
   Ok(())
  }
@@ -114,48 +81,26 @@ impl Universe
   self.timetick += 1;
   self.communications.timetick = self.timetick;
   self.commune.tick(&mut self.communications);
-  self.realm.tick(&mut self.storage.worlds, &mut self.communications);
+  self.realm.tick(&mut self.communications);
 
   for event in self.communications.mail(self.id)
     {
     match event
       {
-        _ => {}
+      interface::Universe::Actor {actor} =>
+              match actor
+                  {
+                  interface::Actor::Drop {id} => { self.realm.drop_actor(id); },
+                  _ => {}
+                  }
       }
     }
  }
 
-/* pub fn lookup_actor(&self, id: ActorId) -> DepotIndex
- {
-  *self.storage.alookup.get(&id).unwrap()
- }*/
-
- pub fn lookup_world(&self, id: Id<World>) -> DepotIndex
- {
-  *self.storage.wlookup.get(&id).unwrap()
- }
-
-/* pub fn make_actor(&mut self, parent: Id<Actor>, home: u64, seed: &mut Seed)
- {
-  log::info!("New actor request from {:?} with {} credits", parent, seed.credits);
-  let iactor : Id<Actor> = Id::new(self.gen_id());
-  self.commune.make_actor(&mut self.communications, iactor, home, seed);
-  self.storage.worlds.get_mut(self.lookup_world(home)).unwrap().add_actor(iactor);
-  self.telemetry.write(self.timetick, telemetry::Message::Birth { id: iactor, parent, home } ).unwrap();
- }
-
- pub fn drop_actor(&mut self, id: Id<Actor>)
- {
-  log::info!("Drop actor {:?} request", id);
-  self.commune.drop_actor(&mut self.communications, id);
-  self.realm.drop_actor(&mut self.storage.worlds, id);
-  self.telemetry.write(self.timetick, telemetry::Message::Death { id } ).unwrap();
- }*/
-
  pub fn run(filename: String, cancel_ticket:Arc<AtomicBool>)
  {
    let mut uni = Universe { id: Id::<Universe>::new(0),
-                            timetick: 0, storage: Storage::default(), commune: Commune::default(),
+                            timetick: 0, commune: Commune::default(),
                             communications: Hub::new( telemetry::Writer::new(Path::new(&filename).with_extension("history").to_str().unwrap().to_owned()).unwrap()),
                             realm: Realm::default(), };
    uni.load(&filename).expect("Could not load an Universe");

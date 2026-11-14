@@ -1,7 +1,6 @@
 use std::io::{Result};
 use crate::arcadia::common::Id;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
-use crate::arcadia::depot::{Depot, DepotIndex};
 use crate::arcadia::actors::Actor;
 use crate::arcadia::interface::Hub;
 use crate::arcadia::interface;
@@ -23,6 +22,23 @@ impl World
 
  pub fn tick(&mut self, hub: &mut Hub)
  {
+  for event in hub.mail(self.id)
+    {
+    match event
+      {
+      interface::Universe::Actor {actor} =>
+              match actor
+                  {
+                  interface::Actor::Register {id} =>
+                      {
+                      self.actors.push(id);
+                      self.adjust_feeder();
+                      log::info!("World {:?} add actor {:?}", self.id, id);
+                      },
+                  _ => {}
+                  }
+      }
+    }
   for a in &self.actors
     { hub.send(*a, interface::Universe::Actor { actor: interface::Actor::Feed { id: *a, amount:self.feeder.sample() } } ); }
  }
@@ -36,13 +52,6 @@ impl World
   log::info!("World {:?} drop actor, {} actors left", self.id, self.actors.len());
  }
 
- pub fn add_actor(&mut self, actor: Id<Actor>)
- {
-  log::info!("World {:?} add actor {:?}", self.id, actor);
-  self.actors.push(actor);
-  self.adjust_feeder();
- }
-
  pub fn adjust_feeder(&mut self)
  {
   if self.actors.len() > 0
@@ -54,8 +63,11 @@ impl World
     self.feeder.set(0);
     }
  }
+}
 
- pub fn load(source: &mut Reader) -> Result<Self>
+impl Factory for World
+{
+ fn load(source: &mut Reader) -> Result<Self>
  {
    log::debug!("World loading");
    let mut world = World::default();
@@ -66,8 +78,11 @@ impl World
    log::debug!("World {:?} loaded", world.id);
    Ok(world)
  }
+}
 
- pub fn save(&self, target: &mut Writer) -> Result<()>
+impl Stored for World
+{
+ fn save(&self, target: &mut Writer) -> Result<()>
  {
    self.id.save(target)?;
    target.u32(self.production)?;
@@ -80,25 +95,43 @@ impl World
 #[derive(Default)]
 pub struct Realm
 {
- worlds: Vec<DepotIndex>
+ id: Id<Realm>,
+ worlds: Vec<World>,
 }
 
 impl Realm
 {
- pub fn tick(&mut self, worlds: &mut Depot<World>, hub: &mut Hub)
+ pub fn tick(&mut self, hub: &mut Hub)
  {
-  for w in &self.worlds
-    { worlds.get_mut(*w).unwrap().tick(hub); }
+  for event in hub.mail(self.id)
+    {
+    match event
+      {
+       _ => {}
+      }
+    }
+  for w in self.worlds.iter_mut()
+      { w.tick(hub); }
  }
 
- pub fn insert(&mut self, world: DepotIndex)
+ pub fn drop_actor(&mut self, id: Id<Actor>)
  {
-  self.worlds.push(world);
+  for w in self.worlds.iter_mut()
+      { w.drop_actor(id); }
  }
 
- pub fn drop_actor(&mut self, worlds: &mut Depot<World>, actor: Id<Actor>)
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
  {
-  for w in &self.worlds
-    { worlds.get_mut(*w).unwrap().drop_actor(actor); }
+  self.id = Id::<Realm>::load(reader)?;
+  reader.vec(&mut self.worlds)?;
+  Ok( () )
  }
+
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  self.id.save(writer)?;
+  writer.vec(&self.worlds)?;
+  Ok( () )
+ }
+
 }
