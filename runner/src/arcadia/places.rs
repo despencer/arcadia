@@ -17,9 +17,6 @@ pub struct World
 
 impl World
 {
- pub fn get_id(&self) -> Id<World>
- { self.id }
-
  pub fn tick(&mut self, hub: &mut Hub)
  {
   for event in hub.mail(self.id)
@@ -73,7 +70,7 @@ impl Factory for World
    let mut world = World::default();
    world.id = Id::<World>::load(source)?;
    world.production = source.u32()?;
-   source.vec(&mut world.actors);
+   source.vec(&mut world.actors)?;
    world.adjust_feeder();
    log::debug!("World {:?} loaded", world.id);
    Ok(world)

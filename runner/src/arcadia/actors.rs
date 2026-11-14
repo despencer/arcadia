@@ -8,27 +8,6 @@ use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Factory, Stored};
 use crate::arcadia::places::World;
 
-/*#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ActorId(u64);
-
-impl ActorId
-{
- pub fn new(id: u64) -> Self
-  { ActorId(id) }
-}
-
-impl Factory for ActorId
-{
- fn load(reader: &mut Reader) -> Result<Self>
-  { Ok(ActorId(reader.u64()?)) }
-}
-
-impl Stored for ActorId
-{
- fn save(&self, writer: &mut Writer) -> Result<()>
-  { writer.u64(self.0) }
-}*/
-
 #[derive(Default, Debug)]
 pub enum ActorInside
 {
@@ -37,19 +16,81 @@ pub enum ActorInside
  Make { seed: Seed }
 }
 
+impl ActorInside
+{
+ const EMPTY: u8 = 1;
+ const MAKE: u8 = 2;
+ fn version() -> u8 { 1 }
+}
+
+impl Factory for ActorInside
+{
+ fn load(reader: &mut Reader) -> Result<Self>
+ {
+  if reader.u8()? > Self::version()
+         { return Err(Error::new(ErrorKind::InvalidData, "Unknown actorinside interface version")); }
+
+  let utype = reader.u8()?;
+  let act = match utype
+        {
+        Self::EMPTY => Self::Empty { },
+        Self::MAKE => Self::Make { seed: Seed::load(reader)? },
+        _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown actorinside interface"))
+        };
+  Ok(act)
+ }
+}
+
+impl Stored for ActorInside
+{
+ fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+  writer.u8(Self::version())?;
+  match self
+    {
+    Self::Empty => { writer.u8(Self::EMPTY)? },
+    Self::Make {seed} =>
+           { seed.save(writer)? },
+    }
+  Ok( () )
+ }
+}
+
 #[derive(Default, Debug)]
 pub struct Body
 {
  pub id: Id<Actor>,
+ commune: Id<Commune>,
  home: Id<World>,
  credits: u32,
  reserve: u32,
  inside: OldInterface<ActorInside>,
- commune: Id<Commune>,
 }
 
 impl Body
 {
+ pub fn load(&mut self, reader: &mut Reader) -> Result<()>
+ {
+   self.id = Id::load(reader)?;
+   self.commune = Id::load(reader)?;
+   self.home = Id::load(reader)?;
+   self.credits = reader.u32()?;
+   self.reserve = reader.u32()?;
+   self.inside.load(reader)?;
+   Ok(())
+ }
+
+ pub fn save(&self, writer: &mut Writer) -> Result<()>
+ {
+   self.id.save(writer)?;
+   self.commune.save(writer)?;
+   self.home.save(writer)?;
+   writer.u32(self.credits)?;
+   writer.u32(self.reserve)?;
+   self.inside.save(writer)?;
+   Ok(())
+ }
+
  pub fn get_credits(&self) -> u32
  {
    self.credits.saturating_sub(self.reserve)
@@ -153,10 +194,7 @@ impl Factory for Actor
    let mut actor = Actor::default();
    if reader.u8()? > actor.version()
          { return Err(Error::new(ErrorKind::InvalidData, "Unknown actor version")); }
-   actor.body.id = Id::load(reader)?;
-   actor.body.home = Id::load(reader)?;
-   actor.body.credits = reader.u32()?;
-   actor.body.reserve = reader.u32()?;
+   actor.body.load(reader)?;
    let factory = UnitFactory::default();
    actor.control = Compartment::load(reader, &factory)?;
    log::debug!("Actor {:?} loaded, {} credits", actor.body.id, actor.body.credits);
@@ -170,10 +208,7 @@ impl Stored for Actor
  {
    log::debug!("Saving actor {:?}", self.body.id);
    writer.u8(self.version())?;
-   self.body.id.save(writer)?;
-   self.body.home.save(writer)?;
-   writer.u32(self.body.credits)?;
-   writer.u32(self.body.reserve)?;
+   self.body.save(writer)?;
    self.control.save(writer)?;
    Ok(())
  }

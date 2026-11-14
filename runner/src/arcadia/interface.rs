@@ -22,11 +22,6 @@ impl<T> OldInterface<T>
   self.messages.push_back(message);
  }
 
- pub fn len(&self) -> usize
- {
-  self.messages.len()
- }
-
  pub fn get(&mut self) -> Option<T>
  {
   self.messages.pop_front()
@@ -70,7 +65,7 @@ pub struct Receiver
 impl From<Id<universe::Universe>> for Receiver { fn from(id: Id<universe::Universe>) -> Self { Receiver { party_type: PartyType::Universe, id: id.get_value() } } }
 impl From<Id<Commune>> for Receiver { fn from(id: Id<Commune>) -> Self { Receiver { party_type: PartyType::Commune, id: id.get_value() } } }
 impl From<Id<World>> for Receiver { fn from(id: Id<World>) -> Self { Receiver { party_type: PartyType::World, id: id.get_value() } } }
-impl From<Id<Actor>> for Receiver { fn from(id: Id<Actor>) -> Self { Receiver { party_type: PartyType::Actor, id: id.get_value() } } }
+impl From<Id<actors::Actor>> for Receiver { fn from(id: Id<actors::Actor>) -> Self { Receiver { party_type: PartyType::Actor, id: id.get_value() } } }
 
 impl Receiver
 {

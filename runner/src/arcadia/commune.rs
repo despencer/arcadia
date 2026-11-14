@@ -29,6 +29,7 @@ impl Commune
                       let id = Id::<Actor>::new(hub.gen_id());
                       let actor = Actor::new(id, home, &mut seed);
                       self.actors.push(actor);
+                      hub.register(id);
                       hub.send(home, interface::Universe::Actor { actor: interface::Actor::Register { id: id } } );
                       },
                   interface::Actor::Drop {id} =>
