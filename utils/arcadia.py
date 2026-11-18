@@ -217,9 +217,11 @@ class Compartment:
 class Actor:
     def __init__(self):
         self.id = 0
-        self.home = None
+        self.commune = 0
+        self.home = 0
         self.credits = 0
         self.reserve = 0
+        self.inside = []
         self.control = Compartment()
 
     @classmethod
@@ -228,22 +230,22 @@ class Actor:
             raise Exception('Unknown version of Actor')
         actor = cls()
         actor.id = reader.u64()
+        actor.commune = reader.u64()
         actor.home = reader.u64()
         actor.credits = reader.u32()
         actor.reserve = reader.u32()
+        reader.array(actor.inside, reader.metastr.messages['ActorInside'].read)
         actor.control.load(reader)
-        reader.actors[actor.id] = actor
         return actor
-
-    def update(self, reader):
-        self.home = reader.worlds[self.home]
 
     def save(self, writer):
         writer.u8(1)
         writer.u64(self.id)
-        writer.u64(self.home.id)
+        writer.u64(self.commune)
+        writer.u64(self.home)
         writer.u32(self.credits)
         writer.u32(self.reserve)
+        writer.array(self.inside)
         self.control.save(writer)
 
 class World:
@@ -252,51 +254,95 @@ class World:
         self.production = 0
         self.actors = []
 
+    def addactor(self, aid):
+        self.actors.append(aid)
+
     @classmethod
     def load(cls, reader):
         world = cls()
         world.id = reader.u64()
         world.production = reader.u32()
-        acount = reader.u32()
-        for i in range(acount):
-            world.actors.append( reader.actors[reader.u64()] )
-        reader.worlds[world.id] = world
+        reader.array(world.actors, reader.u64)
         return world
 
     def save(self, writer):
         writer.u64(self.id)
         writer.u32(self.production)
-        writer.u32(len(self.actors))
-        for a in self.actors:
-            writer.u64(a.id)
+        writer.array(self.actors, storage.Writer.u64)
+
+class Commune:
+    def __init__(self):
+        self.id = 0
+        self.billing = 0
+        self.actors = []
+
+    def addactor(self. homeid, commhub):
+        actor = Actor()
+        actor.id = commhub.genreceiver(comms.Receiver.ACTOR)
+        actor.home = homeid
+        actor.commune = self.id
+        self.actors.append(actor)
+        return actor
+
+    @classmethod
+    def load(cls, reader):
+        cmn = cls()
+        cmn.id = reader.u64()
+        cmn.billing = reader.u32()
+        reader.array(cmn.actors, Actor.load)
+        return cmn
+
+    def save(self, writer):
+        writer.u64(self.id)
+        writer.u32(self.billing)
+        writer.array(self.actors)
+
+class Realm:
+    def __init__(self):
+        self.id = 0
+        self.worlds = []
+
+    def addworld(self, commhub):
+        world = World()
+        world.id = commhub.genreceiver(comms.Receiver.WORLD)
+        self.worlds.append(world)
+        return world
+
+    @classmethod
+    def load(cls, reader):
+        realm = cls()
+        realm.id = reader.u64()
+        reader.array(realm.worlds, World.load)
+        return realm
+
+    def save(self, writer):
+        writer.u64(self.id)
+        writer.array(self.worlds)
 
 class Universe:
     def __init__(self):
         self.units = units.load( os.path.dirname(__file__) + '/units.yaml')
         self.timetick = 0
-        self.lastseqid = 0
-        self.billing = 0
-        self.actors = []
-        self.worlds = []
-        self.requests = []
+        self.commune = Commune()
+        self.realm = Realm()
         self.commhub = comms.Hub()
 
-    def genid(self):
-        self.lastseqid += 1
-        return self.lastseqid
-
     def addworld(self):
-        world = World()
-        world.id = self.genid()
-        self.worlds.append(world)
-        return world
+        return self.realm.addworld(self.commhub)
 
     def addactor(self, home):
-        actor = Actor()
-        actor.home = home
-        actor.id = self.genid()
-        self.actors.append(actor)
+        actor = self.commune.addactor(home.id, self.commhub)
+        home.addactor(actor.id)
         return actor
+
+    @classmethod
+    def make(cls):
+        uni = cls()
+        uni.commhub.lastseqid = 1
+        uni.id = self.commhub.genreceiver(comms.Receiver.UNIVERSE)
+        uni.commune.id = self.commhub.genreceiver(comms.Receiver.COMMUNE)
+        uni.realm.id = self.commhub.genreceiver(comms.Receiver.REALM)
+        return uni
 
     @classmethod
     def load(cls, fs):
@@ -305,26 +351,20 @@ class Universe:
         version = reader.u16()
         if version != UNIVERSE_VERSION:
             raise Exception(f"Unknown version {version}")
+        uni.id = reader.u64()
         uni.timetick = reader.u64()
-        uni.lastseqid = reader.u64()
-        uni.billing = reader.u32()
-        reader.array(uni.actors, Actor.load)
-        reader.array(uni.worlds, World.load)
-        for a in uni.actors:
-            a.update(reader)
-        reader.array(uni.requests, reader.metastr.messages['Actor'].read)
+        uni.commune = Commune.load(reader)
+        uni.realm.load(reader)
         uni.commhub = comms.Hub.load(reader)
         return uni
 
     def save(self, fs):
         writer = storage.Writer(fs)
         writer.u16(UNIVERSE_VERSION)
+        writer.u64(self.id)
         writer.u64(self.timetick)
-        writer.u64(self.lastseqid)
-        writer.u32(self.billing)
-        writer.array(self.actors, Actor.save)
-        writer.array(self.worlds, World.save)
-        writer.array(self.requests, comms.Message.save)
+        self.commune.save(writer)
+        self.realm.save(writer)
         self.commhub.save(writer)
 
 def load(fs):

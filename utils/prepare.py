@@ -17,7 +17,6 @@ def make(args):
             uni.units.make_unit(junit, actor.control)
     actor.control.values.credits = 1000.0
     actor.control.values.birth = False
-    world.actors.append(actor)
     return uni
 
 def main():

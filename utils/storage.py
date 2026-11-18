@@ -39,6 +39,12 @@ class Reader:
         for i in range(acount):
             alist.append( reader(self) )
 
+    def lookup(self, adict, keyreader, valuereader):
+        acount = self.u32()
+        adict.clear()
+        for i in range(acount):
+            adict[keyreader(self)] = valuereader(self)
+
 class Writer:
     def __init__(self, fs):
         self.fs = fs
@@ -76,6 +82,12 @@ class Writer:
         self.u32(len(alist))
         for item in alist:
             writer(item, self)
+
+    def lookup(self, adict, keywriter, valuewriter):
+        self.u32(len(adict))
+        for k,v in adict.items():
+            keywriter(k, self)
+            valuewriter(v, self)
 
 class Depot:
     def __init__(self):
