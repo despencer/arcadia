@@ -50,7 +50,7 @@ impl Stored for ActorInside
     {
     Self::Empty => { writer.u8(Self::EMPTY)? },
     Self::Make {seed} =>
-           { seed.save(writer)? },
+           { writer.u8(Self::MAKE)?; seed.save(writer)? },
     }
   Ok( () )
  }

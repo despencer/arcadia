@@ -14,17 +14,17 @@ def params(actor):
 def messages(alist):
     return "[" + ', '.join(map(str, alist)) + "]"
 
+rectype = {1: "UNI", 2:"CMN", 3:"RLM", 4:"WRD", 5:"ACT"}
+
 def report(uni):
-    print(f'At tick {uni.timetick}, billing {uni.billing}, {len(uni.actors)} actors')
-    print('Communication Hub:')
-    for c in uni.commhub.channels.data:
-        if c != None:
-            print('Channel')
-    print(f'Requests: {messages(uni.requests)}')
-    for w in uni.worlds:
+    print(f'Uni #{uni.id} at tick {uni.timetick}, billing {uni.commune.billing}, {len(uni.commune.actors)} actors, commune #{uni.commune.id}, realm #{uni.realm.id}')
+    print(f'Communication Hub, lastid:{uni.commhub.lastseqid} :')
+    for r in uni.commhub.receivers.values():
+        print(f'   #{r.receiver.id} {rectype[r.receiver.kind]} {messages(r.messages)}')
+    for w in uni.realm.worlds:
         print(f'World #{w.id}, production {w.production}')
-    for a in uni.actors:
-        rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} at #{a.home.id}\n  {values(a)}\n  {params(a)}'
+    for a in uni.commune.actors:
+        rep = f'Actor #{a.id}, credits {a.credits}/{a.reserve} at #{a.home}\n  {values(a)}\n  {params(a)}\n  inside:{messages(a.inside)}'
         print(rep)
 
 def main():

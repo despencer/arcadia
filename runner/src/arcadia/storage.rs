@@ -15,14 +15,20 @@ pub trait Factory where Self:Sized
 
 pub struct Reader<'a>
 {
- source: &'a mut dyn Read
+ position: u64,
+ source: &'a mut dyn Read,
 }
 
+#[allow(dead_code)]
 impl<'a> Reader<'a>
 {
  pub fn new(source: &'a mut dyn Read) -> Self
  {
-  Reader { source }
+  Reader { source, position: 0 }
+ }
+ pub fn stream_position(&mut self) -> Result<u64>
+ {
+  Ok(self.position)
  }
  pub fn bool(&mut self) -> Result<bool>
  {
@@ -30,22 +36,27 @@ impl<'a> Reader<'a>
  }
  pub fn u8(&mut self) -> Result<u8>
  {
+  self.position += 1;
   self.source.read_u8()
  }
  pub fn u16(&mut self) -> Result<u16>
  {
+  self.position += 2;
   self.source.read_u16::<LittleEndian>()
  }
  pub fn u32(&mut self) -> Result<u32>
  {
+  self.position += 4;
   self.source.read_u32::<LittleEndian>()
  }
  pub fn u64(&mut self) -> Result<u64>
  {
+  self.position += 8;
   self.source.read_u64::<LittleEndian>()
  }
  pub fn f32(&mut self) -> Result<f32>
  {
+  self.position += 4;
   self.source.read_f32::<LittleEndian>()
  }
  pub fn port(&mut self) -> Result<Port>
@@ -60,6 +71,7 @@ impl<'a> Reader<'a>
  {
   let size = self.u16()? as usize;
   let mut buf = vec![0u8; size];
+  self.position += size as u64;
   self.source.read_exact(&mut buf)?;
   String::from_utf8(buf).map_err(|e| Error::new(ErrorKind::InvalidData, e))
  }
@@ -88,14 +100,20 @@ impl<'a> Reader<'a>
 
 pub struct Writer<'a>
 {
+ position: u64,
  target: &'a mut dyn Write
 }
 
+#[allow(dead_code)]
 impl<'a> Writer<'a>
 {
  pub fn new(target: &'a mut dyn Write) -> Self
  {
-  Writer { target }
+  Writer { target, position: 0 }
+ }
+ pub fn stream_position(&mut self) -> Result<u64>
+ {
+  Ok(self.position)
  }
  pub fn bool(&mut self, value: bool) -> Result<()>
  {
@@ -103,22 +121,27 @@ impl<'a> Writer<'a>
  }
  pub fn u8(&mut self, value: u8) -> Result<()>
  {
+  self.position += 1;
   self.target.write_u8(value)
  }
  pub fn u16(&mut self, value: u16) -> Result<()>
  {
+  self.position += 2;
   self.target.write_u16::<LittleEndian>(value)
  }
  pub fn u32(&mut self, value: u32) -> Result<()>
  {
+  self.position += 4;
   self.target.write_u32::<LittleEndian>(value)
  }
  pub fn u64(&mut self, value: u64) -> Result<()>
  {
+  self.position += 8;
   self.target.write_u64::<LittleEndian>(value)
  }
  pub fn f32(&mut self, value: f32) -> Result<()>
  {
+  self.position += 4;
   self.target.write_f32::<LittleEndian>(value)
  }
  pub fn port(&mut self, value: Port) -> Result<()>
@@ -133,6 +156,7 @@ impl<'a> Writer<'a>
  {
   let buf = value.as_bytes();
   self.u16( buf.len() as u16)?;
+  self.position += buf.len() as u64;
   self.target.write_all(buf)
  }
  pub fn vecdeque<T:Stored>(&mut self, value: &VecDeque<T>) -> Result<()>

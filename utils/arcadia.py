@@ -135,7 +135,7 @@ class Seed:
     def load(cls, reader):
         seed = cls()
         seed.credits = reader.u32()
-        seed.seed = Compartment.load(reader)
+        seed.seed.load(reader)
         return seed
 
     def save(self, writer):
@@ -245,7 +245,7 @@ class Actor:
         writer.u64(self.home)
         writer.u32(self.credits)
         writer.u32(self.reserve)
-        writer.array(self.inside)
+        writer.array(self.inside, comms.Message.save)
         self.control.save(writer)
 
 class World:
@@ -262,13 +262,13 @@ class World:
         world = cls()
         world.id = reader.u64()
         world.production = reader.u32()
-        reader.array(world.actors, reader.u64)
+        reader.array(world.actors, storage.read_id)
         return world
 
     def save(self, writer):
         writer.u64(self.id)
         writer.u32(self.production)
-        writer.array(self.actors, storage.Writer.u64)
+        writer.array(self.actors, storage.write_id)
 
 class Commune:
     def __init__(self):
@@ -276,7 +276,7 @@ class Commune:
         self.billing = 0
         self.actors = []
 
-    def addactor(self. homeid, commhub):
+    def addactor(self, homeid, commhub):
         actor = Actor()
         actor.id = commhub.genreceiver(comms.Receiver.ACTOR)
         actor.home = homeid
@@ -295,7 +295,7 @@ class Commune:
     def save(self, writer):
         writer.u64(self.id)
         writer.u32(self.billing)
-        writer.array(self.actors)
+        writer.array(self.actors, Actor.save)
 
 class Realm:
     def __init__(self):
@@ -317,7 +317,7 @@ class Realm:
 
     def save(self, writer):
         writer.u64(self.id)
-        writer.array(self.worlds)
+        writer.array(self.worlds, World.save)
 
 class Universe:
     def __init__(self):
@@ -339,9 +339,9 @@ class Universe:
     def make(cls):
         uni = cls()
         uni.commhub.lastseqid = 1
-        uni.id = self.commhub.genreceiver(comms.Receiver.UNIVERSE)
-        uni.commune.id = self.commhub.genreceiver(comms.Receiver.COMMUNE)
-        uni.realm.id = self.commhub.genreceiver(comms.Receiver.REALM)
+        uni.id = uni.commhub.genreceiver(comms.Receiver.UNIVERSE)
+        uni.commune.id = uni.commhub.genreceiver(comms.Receiver.COMMUNE)
+        uni.realm.id = uni.commhub.genreceiver(comms.Receiver.REALM)
         return uni
 
     @classmethod
@@ -354,7 +354,7 @@ class Universe:
         uni.id = reader.u64()
         uni.timetick = reader.u64()
         uni.commune = Commune.load(reader)
-        uni.realm.load(reader)
+        uni.realm = Realm.load(reader)
         uni.commhub = comms.Hub.load(reader)
         return uni
 

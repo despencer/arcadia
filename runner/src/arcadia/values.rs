@@ -31,10 +31,10 @@ impl Factory for Seed
 
 impl Stored for Seed
 {
- fn save(&self, target: &mut Writer) -> Result<()>
+ fn save(&self, writer: &mut Writer) -> Result<()>
  {
-  target.u32(self.credits)?;
-  self.seed.save(target)
+  writer.u32(self.credits)?;
+  self.seed.save(writer)
  }
 
 }

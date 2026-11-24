@@ -7,11 +7,15 @@ class Message:
     def save(self, writer):
         self.meta.write(self, writer)
 
+    def __repr__(self):
+        return self.meta.present(self)
+
 class Receiver:
-    UNIVERSE = 1,
-    COMMUNE = 2,
-    WORLD = 3,
-    ACTOR = 4,
+    UNIVERSE = 1
+    COMMUNE = 2
+    REALM = 3
+    WORLD = 4
+    ACTOR = 5
 
     def __init__(self):
         self.kind = 0
@@ -26,7 +30,7 @@ class Receiver:
 
     def save(self, writer):
         writer.u8(self.kind)
-        writer.u64(self.kind)
+        writer.u64(self.id)
 
 class Mailbox:
     def __init__(self):
@@ -34,9 +38,9 @@ class Mailbox:
         self.messages = []
 
     @classmethod
-    def make(cls, id, kind):
-        maibox = cls()
-        mailbox.receiver.id = id
+    def make(cls, mid, kind):
+        mailbox = cls()
+        mailbox.receiver.id = mid
         mailbox.receiver.kind = kind
         return mailbox
 
@@ -48,7 +52,7 @@ class Mailbox:
         return mailbox
 
     def save(self, writer):
-        self.receiver.write(writer)
+        self.receiver.save(writer)
         writer.array(self.messages, Message.save)
 
 class Hub:
@@ -60,18 +64,18 @@ class Hub:
         self.lastseqid += 1
         return self.lastseqid
 
-    def receiver(self, kind):
-        id = self.genid()
-        self.receivers[id] = Mailbox.make(id, kind)
-        return id
+    def genreceiver(self, kind):
+        mid = self.genid()
+        self.receivers[mid] = Mailbox.make(mid, kind)
+        return mid
 
     @classmethod
     def load(cls, reader):
         hub = cls()
         hub.lastseqid = reader.u64()
-        reader.lookup(hub.receivers, reader.u64, Mailbox.load)
+        reader.lookup(hub.receivers, storage.read_id, Mailbox.load)
         return hub
 
     def save(self, writer):
         writer.u64(self.lastseqid)
-        writer.lookup(self.receiver, writer.u64, Mailbox.save)
+        writer.lookup(self.receivers, storage.write_id, Mailbox.save)

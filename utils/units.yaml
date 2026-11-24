@@ -81,6 +81,25 @@ interfaces:
                   type: u64
                 - name: seed
                   type: seeds
+          - type: Feed
+            id: 4
+            parameters:
+                - name: id
+                  type: u64
+                - name: amount
+                  type: u32
+          - type: Bill
+            id: 5
+            parameters:
+                - name: id
+                  type: u64
+                - name: amount
+                  type: u32
+          - type: Register
+            id: 6
+            parameters:
+                - name: id
+                  type: u64
    - message: Universe
      variants:
           - type: Actor
@@ -88,3 +107,13 @@ interfaces:
             parameters:
                 - name: actor
                   type: Message.Actor
+   - message: ActorInside
+     variants:
+          - type: Empty
+            id: 1
+            parameters: []
+          - type: Make
+            id: 2
+            parameters:
+                - name: seed
+                  type: Seed

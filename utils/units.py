@@ -143,6 +143,9 @@ class Variant:
         for p in self.parameters:
             p.kind.write(writer, getattr(message, p.name))
 
+    def present(self, message):
+        return f'#{self.name}' + '{' + ', '.join(map(lambda x: str(getattr(message, x.name)), self.parameters)) + '}'
+
 class MessageType:
     def __init__(self):
         self.version = 1
@@ -190,7 +193,8 @@ class Value:
 class Structure:
     def __init__(self):
         self.kinds = { 'u32':SimpleType('u32', 0), 'u64':SimpleType('u64', 0), 'f32':SimpleType('f32', 0.0), 'bool':SimpleType('bool', False),
-                       'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)), 'blueprint': CommonType('Blueprint', self, arcadia.BluePrint) }
+                       'seeds': ArrayType('seeds', CommonType('Seed', self, arcadia.Seed)), 'Seed':CommonType('Seed', self, arcadia.Seed),
+                       'blueprint': CommonType('Blueprint', self, arcadia.BluePrint) }
         self.unitids = {}
         self.unitnames = {}
         self.valueids = {}

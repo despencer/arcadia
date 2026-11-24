@@ -4,7 +4,7 @@ use crate::arcadia::common::Id;
 use crate::arcadia::values::Seed;
 use crate::arcadia::storage::{Reader, Writer, Stored, Factory};
 use crate::arcadia::actors;
-use crate::arcadia::places::World;
+use crate::arcadia::places::{Realm, World};
 use crate::arcadia::commune::Commune;
 use crate::arcadia::telemetry;
 use crate::arcadia::universe;
@@ -51,8 +51,9 @@ pub enum PartyType
  Unknown = 0,
  Universe = 1,
  Commune = 2,
- World = 3,
- Actor = 4,
+ Realm = 3,
+ World = 4,
+ Actor = 5,
 }
 
 #[derive(Default)]
@@ -64,6 +65,7 @@ pub struct Receiver
 
 impl From<Id<universe::Universe>> for Receiver { fn from(id: Id<universe::Universe>) -> Self { Receiver { party_type: PartyType::Universe, id: id.get_value() } } }
 impl From<Id<Commune>> for Receiver { fn from(id: Id<Commune>) -> Self { Receiver { party_type: PartyType::Commune, id: id.get_value() } } }
+impl From<Id<Realm>> for Receiver { fn from(id: Id<Realm>) -> Self { Receiver { party_type: PartyType::Realm, id: id.get_value() } } }
 impl From<Id<World>> for Receiver { fn from(id: Id<World>) -> Self { Receiver { party_type: PartyType::World, id: id.get_value() } } }
 impl From<Id<actors::Actor>> for Receiver { fn from(id: Id<actors::Actor>) -> Self { Receiver { party_type: PartyType::Actor, id: id.get_value() } } }
 
@@ -71,6 +73,7 @@ impl Receiver
 {
  const UNIVERSE:u8 = PartyType::Universe as u8;
  const COMMUNE:u8 = PartyType::Commune as u8;
+ const REALM:u8 = PartyType::Realm as u8;
  const WORLD:u8 = PartyType::World as u8;
  const ACTOR:u8 = PartyType::Actor as u8;
 
@@ -80,10 +83,12 @@ impl Receiver
      {
      Self::UNIVERSE => PartyType::Universe,
      Self::COMMUNE => PartyType::Commune,
+     Self::REALM => PartyType::Realm,
      Self::WORLD => PartyType::World,
      Self::ACTOR => PartyType::Actor,
      _ => return Err(Error::new(ErrorKind::InvalidData, "Unknown party type"))
      };
+  self.id = reader.u64()?;
   Ok(())
  }
  fn save(&self, writer: &mut Writer) -> Result<()>

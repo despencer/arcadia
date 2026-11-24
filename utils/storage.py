@@ -2,6 +2,12 @@ import struct
 
 msb='little'
 
+def write_id(value, writer):
+    writer.u64(value)
+
+def read_id(reader):
+    return reader.u64()
+
 class Reader:
     def __init__(self, fs, metastr):
         self.fs = fs
@@ -43,7 +49,9 @@ class Reader:
         acount = self.u32()
         adict.clear()
         for i in range(acount):
-            adict[keyreader(self)] = valuereader(self)
+            k = keyreader(self)
+            v = valuereader(self)
+            adict[k] = v
 
 class Writer:
     def __init__(self, fs):

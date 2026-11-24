@@ -5,8 +5,8 @@ import yaml
 import arcadia
 
 def make(args):
-    uni = arcadia.Universe()
-    uni.billing = 10
+    uni = arcadia.Universe.make()
+    uni.commune.billing = 10
     world = uni.addworld()
     world.production = 1000
     actor = uni.addactor(world)

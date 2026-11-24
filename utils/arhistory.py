@@ -1,5 +1,6 @@
 import os
-import arcadia
+import storage
+import units
 
 HISTORY_VERSION = 1
 
@@ -37,7 +38,7 @@ class Birth:
         birth.homeid = reader.u64()
         return birth
 
-class Message:
+class HistoryMessage:
     def __init__(self):
         self.channel = 0
         self.timetick = 0
@@ -48,10 +49,7 @@ class Message:
         msg = cls()
         msg.channel = reader.u16()
         msg.timetick = reader.u64()
-        msgclass = reader.u16()
-        version = reader.u8()
-        msgsize = reader.u16()
-        msg.payload = { 1: Death.load, 2: Birth.load }[msgclass](reader, version, msgsize)
+        msg.payload = reader.metastr.messages['Universe'].read(reader)
         return msg
 
 class History:
@@ -63,11 +61,11 @@ class History:
         fs.seek(0, os.SEEK_END)
         size = fs.tell()
         fs.seek(0)
-        reader = arcadia.Reader(fs)
+        reader = storage.Reader(fs, units.load( os.path.dirname(__file__) + '/units.yaml'))
         version = reader.u16()
         if version != HISTORY_VERSION:
             raise Exception(f"Unknown version {version}")
         hist = cls()
         while fs.tell() < size:
-            hist.messages.append( Message.load(reader) )
+            hist.messages.append( HistoryMessage.load(reader) )
         return hist
